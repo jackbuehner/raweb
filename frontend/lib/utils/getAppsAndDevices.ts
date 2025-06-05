@@ -2,8 +2,11 @@
  * Fetches and parses the MS-TWSP webfeed provided by RAWeb. Returns a list of apps and devices that are available to the current user.
  * @param base The base/prefix for the url. It should be the path to the IIS application root and always end in forward slash, e.g. '/RAWeb/'
  */
-export async function getAppsAndDevices(base = '/', { mergeTerminalServers = true } = {}) {
-  const [origin, feed] = await getFeed(base, 2.0, mergeTerminalServers);
+export async function getAppsAndDevices(
+  base: string | URL = '/',
+  { mergeTerminalServers = true, redirect = false } = {}
+) {
+  const [origin, feed] = await getFeed(base, 2.0, mergeTerminalServers, redirect);
   if (!feed || !origin) {
     throw new Error('Failed to fetch the feed.');
   }
@@ -403,16 +406,32 @@ function getFolders(resouces: Resource[]) {
  * Gets the MS-TWSP webfeed document.
  * @param base The base/prefix for the url. It should be the path to the IIS application root and always end in forward slash, e.g. '/RAWeb/'
  */
-async function getFeed(base = '/', version: 1.1 | 2.0 | 2.1 = 2.1, mergeTerminalServers = true) {
+async function getFeed(
+  base: string | URL = '/',
+  version: 1.1 | 2.0 | 2.1 = 2.1,
+  mergeTerminalServers = true,
+  redirect = true
+) {
   const parser = new DOMParser();
-  const path = `${base}webfeed.aspx?mergeTerminalServers=${mergeTerminalServers ? 1 : 0}`;
 
-  return await fetch(path, {
+  let path = '';
+  if (base instanceof URL) {
+    path = base.origin + base.pathname;
+  } else {
+    path = `${base}webfeed.aspx`;
+  }
+
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set('mergeTerminalServers', mergeTerminalServers ? '1' : '0');
+
+  return await fetch(url, {
     method: 'GET',
     headers: {
       Accept: `application/x-msts-radc+xml; radc_schema_version=${version.toFixed(1)}`,
     },
     cache: 'no-cache',
+    redirect: 'manual',
+    credentials: 'include',
   })
     .then(async (response) => {
       const url = new URL(response.url);
@@ -453,3 +472,5 @@ async function isSignedRDP(response: Response) {
     return false; // assume not signed (or handle the error appropriately)
   }
 }
+
+export { getFolders as _getFolders };

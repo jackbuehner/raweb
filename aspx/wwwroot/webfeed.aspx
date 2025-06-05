@@ -431,7 +431,24 @@
     }
 </script>
 <%
+  string origin = HttpContext.Current.Request.Headers["Origin"];
+  //Response.AppendHeader("Access-Control-Allow-Origin", origin ?? "*");
+  Response.AppendHeader("Access-Control-Allow-Methods", "GET");
+  Response.AppendHeader("Access-Control-Allow-Credentials", "true");
+
   if (getAuthenticatedUserInfo() == null) {
+      // if application/x-raweb-login is accepted, respond with the login pages
+      if (HttpContext.Current.Request.Headers.GetValues("accept").Any(x => x.ToLower().Contains("application/x-raweb-login")))
+      {
+          Response.ContentType = "application/x-raweb-login";
+          Response.Write("{");
+          Response.Write("\"login\": \"" + ResolveUrl("~/auth/login.aspx") + "\", ");
+          Response.Write("\"loginfeed\": \"" + ResolveUrl("~/auth/loginfeed.aspx") + "\", ");
+          Response.Write("\"loginui\": \"" + ResolveUrl("~/login.aspx") + "\"");
+          Response.Write("}");
+          return;
+      }
+
       Response.Redirect("auth/loginfeed.aspx");
   }
   else {

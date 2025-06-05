@@ -4,6 +4,7 @@
     combineTerminalServersModeEnabled,
     favoritesEnabled,
     flatModeEnabled,
+    getAppsAndDevices,
     iconBackgroundsEnabled,
     simpleModeEnabled,
     useFavoriteResources,
@@ -70,12 +71,51 @@
       console.error('Failed to copy workspace URL: ', err);
     });
   }
+
+  async function addExternalWebfeed(url?: URL) {
+    if (!url) {
+      url = new URL(prompt('Enter the URL of the webfeed:') || '');
+    }
+
+    const attempt = () =>
+      fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: `application/x-msts-radc+xml; radc_schema_version=2.1, application/x-raweb-login`,
+        },
+        cache: 'no-cache',
+        redirect: 'manual',
+        credentials: 'include',
+      });
+
+    // step 1: check if authenticated
+    attempt().then(async (response) => {
+      if (response.headers.get('Content-Type')?.includes('application/x-raweb-login')) {
+        const json = await response.json();
+        const loginUrl = new URL(json.loginui, url.origin);
+        const returnUrl = new URL(window.location.href);
+        returnUrl.searchParams.set('addExternalWebfeedContinue', url.href);
+        loginUrl.searchParams.set('returnUrl', returnUrl.href);
+        const shouldContinue = confirm(`You need to sign in to ${loginUrl.href} to continue`);
+        if (shouldContinue) window.location.href = loginUrl.href;
+        return;
+      }
+
+      if (response.headers.get('Content-Type')?.includes('application/x-msts-radc+xml')) {
+        getAppsAndDevices(url, { mergeTerminalServers: combineTerminalServersModeEnabled.value });
+      }
+    });
+  }
 </script>
 
 <template>
   <div class="titlebar-row">
     <TextBlock variant="title">{{ $t('settings.title') }}</TextBlock>
   </div>
+  <section>
+    <h2>Add another webfeed</h2>
+    <button @click="() => addExternalWebfeed()">Add</button>
+  </section>
   <section>
     <div class="section-title-row">
       <TextBlock variant="subtitle">{{ $t('settings.favorites.title') }}</TextBlock>

@@ -33,7 +33,7 @@
     mergeTerminalServers:
       canUseDialogs === false ? falseWritableComputedRef : combineTerminalServersModeEnabled,
   };
-  const { data, loading, error, refresh } = useWebfeedData(window.__iisBase, webfeedOptions);
+  const { data, loading, error, refresh } = useWebfeedData([window.__iisBase], webfeedOptions);
 
   // refresh the webfeed when combineTerminalServersModeEnabled changes,
   // but revert the change if there is an error (e.g., if the server is unreachable)

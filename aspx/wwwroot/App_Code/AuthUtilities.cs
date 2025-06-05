@@ -64,9 +64,27 @@ namespace AuthUtilities
             }
 
             // create a cookie and add it to the response
-            HttpCookie authCookie = new HttpCookie(cookieName, cookieValue);
-            authCookie.Path = FormsAuthentication.FormsCookiePath;
-            response.Cookies.Add(authCookie);
+            bool crossSiteEnabled = true;
+            if (crossSiteEnabled)
+            {
+                string cookieStr = "";
+                cookieStr += cookieName + "=" + cookieValue + "; ";
+                cookieStr += "Path=" + FormsAuthentication.FormsCookiePath + "; ";
+                cookieStr += "HttpOnly; "; // make the cookie HttpOnly to prevent client-side scripts from accessing it
+
+                // when we enable cors
+                cookieStr += "SameSite=None; Secure; "; // allow the cookie to be sent in cross-origin requests, and require HTTPS
+
+                // throw new Exception(cookieStr);
+                response.AppendHeader("Set-Cookie", cookieStr);
+            }
+            else
+            {
+                HttpCookie authCookie = new HttpCookie(cookieName, cookieValue);
+                authCookie.Path = FormsAuthentication.FormsCookiePath;
+                response.Cookies.Add(authCookie);
+            }
+
             return;
         }
 

@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  windows:
+    image: dockurr/windows
+    container_name: windows
+    environment:
+      VERSION: "2025"
+      USERNAME: "rawebadmin"
+      PASSWORD: "raweb"
+      LANGUAGE: "English"
+      REGION: "en-US"
+      KEYBOARD: "en-US"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - 8006:8006
+      - 80:80
+    volumes:
+      - ./windows:/storage
+      - ./oem:/oem
+    restart: always
+    stop_grace_period: 2m
+  
+  codespace-base:
+    image: mcr.microsoft.com/vscode/devcontainers/universal:latest
+    container_name: codespace-base
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+
+volumes:
+  dind_data:

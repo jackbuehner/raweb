@@ -1,0 +1,11 @@
+{
+  "workspaceFolder": "/workspaces/raweb/.devcontainer",
+  "name": "windows",
+  "service": "codespace-base",
+  "forwardPorts": [
+    8006,
+    3389,
+    80
+  ],
+  "dockerComposeFile": "./docker-compose.yml"
+}

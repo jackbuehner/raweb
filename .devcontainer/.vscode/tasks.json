@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Follow docker logs",
+      "type": "shell",
+      "command": "clear && echo \"Starting a docker container for an RAWeb preview.\nThis uses a trial version of Windows Server. Do not use this for any purpose other than previewing RAWeb without purchasing a Windows Server license from Microsoft.\n\nInitial setup can take several minutes. The following steps will occur:\n - Download Windows\n - Install Windows\n - Configure Windows\n - Install RAWeb\n\nThe URLs below can be used to monitor the install process and launch RAWeb (when ready).\n\n--------------------------------------------------------------------------------\n\nMonitor Windows Install: https://$CODESPACE_NAME-8006.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN\nPreview RAWeb: https://$CODESPACE_NAME-80.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN/RAWeb\n\n--------------------------------------------------------------------------------\n\nUsername: rawebadmin\nPassword: raweb\n\n--------------------------------------------------------------------------------\n\" && sudo chmod 666 /var/run/docker.sock && docker logs -f windows",
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    }
+  ]
+}

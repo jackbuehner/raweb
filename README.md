@@ -107,6 +107,8 @@ Please follow the instructions at [TRANSLATING.md](TRANSLATING.md) to add or upd
 
 A web interface for your RemoteApps:
 
+[![Preview in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/kimmknight/raweb)
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="frontend/lib/assets/apps_dark.png">
   <source media="(prefers-color-scheme: light)" srcset="frontend/lib/assets/apps_light.png">

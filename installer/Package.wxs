@@ -1,0 +1,38 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+    Name="RAWeb"
+    Manufacturer="RAWeb"
+    Version="0.0.1"
+    UpgradeCode="5afabd49-017a-4975-8565-be519df69123"
+    InstallerVersion="500"
+  >
+
+    <!-- Force embedding of the cab -->
+    <Media Id="1" Cabinet="RAWeb.cab" EmbedCab="yes" />
+
+    <!-- Include all program files from wwwroot -->
+    <Files Include="..\aspx\wwwroot\**" >
+      <Exclude Files="..\aspx\wwwroot\App_Data\**" />
+    </Files>
+
+
+    <Files Include="..\aspx\wwwroot\App_Data\**">
+    </Files>
+    
+    <!-- Specify the install directory to default to C:\Program Files\RAWeb -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="!(bind.Property.ProductName)">
+        <Directory Id="APPDATA_DIR" Name="App_Data">
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Use the install sequence from DialogSeries.wxs -->
+    <ui:WixUI
+      Id="InstallDir_NoLicense"
+      InstallDirectory="INSTALLFOLDER"
+    />
+    <Property Id="IISWEBSITE" Value="Default Web Site" />
+    <Property Id="IISWEBSITEPATH" Value="/raweb" />
+  </Package>
+</Wix>

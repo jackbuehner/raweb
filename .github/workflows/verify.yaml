@@ -38,10 +38,6 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "9.0.102"
-          cache: true
-          cache-dependency-path: "**/packages.lock.json"
-      - run: dotnet restore --locked-mode
-        working-directory: installer
 
       - name: Build the installer
         run: cd installer && dotnet publish -c Release

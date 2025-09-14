@@ -39,6 +39,7 @@ jobs:
         with:
           dotnet-version: "9.0.x"
           cache: true
+          cache-dependency-path: "**/packages.lock.json"
       - run: dotnet restore --locked-mode
 
       - name: Build the installer

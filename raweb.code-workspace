@@ -5,6 +5,10 @@
       "name": "Respository"
     },
     {
+      "path": "installer",
+      "name": "Installer"
+    },
+    {
       "path": "frontend",
       "name": "Frontend"
     },

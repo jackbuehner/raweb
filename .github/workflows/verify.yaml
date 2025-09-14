@@ -1,0 +1,45 @@
+name: Verify build
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  build_and_release:
+    name: Build and release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.15.0"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: cd frontend && pnpm install
+
+      - name: Build the frontend
+        run: cd frontend && pnpm run build
+
+      - name: Build the installer
+        run: cd installer && dotnet publish -c Release
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raweb_installer_dev
+          path: installer/bin/Release/net9.0-windows/win-x64/publish

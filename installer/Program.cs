@@ -6,12 +6,14 @@ using System.ComponentModel;
 
 var asm = Assembly.GetExecutingAssembly();
 Version? version = asm.GetName().Version;
+string versionString = version != null ? $"v{version}" : "unknown version";
+if (versionString == "v1.0.0.0") versionString = "dev build";
 
 AnsiConsole.Write(new Align(
   new Rows(
     new Text(""),
     new Markup("[lightgreen on black]+++ RAWeb Setup +++[/]"),
-    new Markup($"[italic green]v{version}[/]")
+    new Markup($"[italic green]{versionString}[/]")
   ),
   HorizontalAlignment.Center,
   VerticalAlignment.Top
@@ -132,16 +134,50 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
     string rawebCodeDir = Path.Combine(AppContext.BaseDirectory, "wwwroot");
 
     // choose between express install and custom install
-    var installType = settings.ExpressMode
-      ? "Express Install (recommended)"
-      : AnsiConsole.Prompt(
+    var installType = settings.ExpressMode ? "express" : "";
+    if (string.IsNullOrEmpty(installType))
+    {
+
+      // write the table describing the differences between express and custom install
+      AnsiConsole.WriteLine("RAWeb can be installed using the express installation (recommended) or custom installation (advanced).");
+      var table = new Table();
+      table.AddColumn("[bold]Express[/]");
+      table.AddColumn("[bold]Custom[/]");
+      table.AddRow(
+        new Rows(
+          new Markup("- [lightgreen]Recommended for most users[/]"),
+          new Markup("- Installs RAWeb to the Default Web Site at /RAWeb"),
+          new Markup("  - Automatically upgrades/repairs existing installations without prompts"),
+          new Markup("- Enables authentication"),
+          new Markup("- Enables HTTPS if not already enabled"),
+          new Markup("- Creates and installs an SSL certificate if no certificate is found"),
+          new Markup("- Installs required IIS features")
+        ),
+        new Rows(
+          new Markup("- [yellow]Recommended for advanced users[/]"),
+          new Markup("- Allows installation to a different website and path"),
+          new Markup("  - Prompts before overwriting existing installed files"),
+          new Markup("- Choose whether to enable authentication"),
+          new Markup("- Choose whether to enable HTTPS and create a certificate"),
+          new Markup("- Prompts before installaing missing IIS features")
+        )
+      );
+      AnsiConsole.Write(table);
+      AnsiConsole.Write("\n");
+
+      // prompt to choose the installation type
+      installType = AnsiConsole.Prompt(
         new SelectionPrompt<string>()
-          .Title("Choose installation type:")
+          .Title("Choose an installation type:")
           .AddChoices([
-            "Express Install (recommended)",
-            "Custom Install (advanced)"
+            "express",
+            "custom"
           ])
+          .UseConverter(choice => choice == "express" ? "Express Install (recommended)" : "Custom Install (advanced)")
         );
+    }
+    AnsiConsole.MarkupLine($"Installing in [yellow]{installType}[/] mode.");
+    AnsiConsole.Write("\n");
 
     // check whether the required IIS components are installed
     List<string> missingIisFeatures = [];
@@ -203,14 +239,14 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
 
     // prompt to specify the IIS website
     string siteName = settings.SiteName ?? "Default Web Site";
-    if (string.IsNullOrEmpty(settings.SiteName) && installType == "Custom Install (advanced)" && siteNames.Length > 1)
+    if (string.IsNullOrEmpty(settings.SiteName) && installType == "custom" && siteNames.Length > 1)
     {
       siteName = AnsiConsole.Prompt(
         new SelectionPrompt<string>()
           .Title("Select an IIS [green]website[/] for RAWeb:")
           .AddChoices(siteNames)
       );
-      AnsiConsole.WriteLine($"Selected [green]website[/]: {siteName}");
+      AnsiConsole.MarkupLine($"Selected [green]website[/]: {siteName}");
     }
     if (!siteNames.Contains(siteName))
     {
@@ -220,7 +256,7 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
 
     // prompt to specify the path in the website
     string sitePath = settings.DestinationPath ?? "/RAWeb";
-    if (string.IsNullOrEmpty(settings.DestinationPath) && installType == "Custom Install (advanced)")
+    if (string.IsNullOrEmpty(settings.DestinationPath) && installType == "custom")
     {
       sitePath = AnsiConsole.Prompt(
         new TextPrompt<string>("Specify the [green]path[/] in the website for RAWeb:")
@@ -245,7 +281,7 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
       }
     );
     bool enableHttps = settings.EnableHttps ?? !httpsEnabled;  // always enable HTTPS in express install
-    if (settings.EnableHttps == null && !httpsEnabled && installType == "Custom Install (advanced)")
+    if (settings.EnableHttps == null && !httpsEnabled && installType == "custom")
     {
       enableHttps = AnsiConsole.Prompt(
         new TextPrompt<bool>($"The selected website does not have HTTPS enabled. HTTPS is required use the workspace feature. Do you want to enable HTTPS?")
@@ -266,7 +302,7 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
       }
     );
     bool shouldCreateSelfSignedCert = settings.EnableHttps ?? ((httpsEnabled || enableHttps) && !IsHttpsCertificateBound); // always create in express install
-    if (settings.EnableHttps == null && httpsEnabled && !IsHttpsCertificateBound && installType == "Custom Install (advanced)")
+    if (settings.EnableHttps == null && httpsEnabled && !IsHttpsCertificateBound && installType == "custom")
     {
       shouldCreateSelfSignedCert = AnsiConsole.Prompt(
         new TextPrompt<bool>($"The selected website has HTTPS enabled but does not have a valid certificate bound to the HTTPS binding. An SSL certificate is required use the workspace feature. Do you want to create and bind a self-signed certificate?")
@@ -281,7 +317,7 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
     // which are required for the workspace feature and recommended for
     // general security
     bool enableAuth = settings.EnableAuth ?? true; // always enable in express install
-    if (settings.EnableAuth == null && installType == "Custom Install (advanced)")
+    if (settings.EnableAuth == null && installType == "custom")
     {
       enableAuth = AnsiConsole.Prompt(
         new TextPrompt<bool>($"Do you want to enable Basic Authentication and Windows Authentication for RAWeb? These are required for the workspace feature and recommended for general security.")
@@ -519,6 +555,7 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
     if (httpsEnabled || enableHttps)
     {
       string httpsUrl = "";
+      string localHttpsUrl = $"https://{Environment.MachineName}{(sitePath == "/" ? "" : sitePath)}";
       AnsiConsole.Status()
         .Start("Finalizing...", ctx =>
         {
@@ -538,6 +575,7 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
       [bold lightgreen]RAWeb is installed and ready to use![/]
 
       [steelblue1]Web interface: {httpsUrl}
+      {(localHttpsUrl != httpsUrl ? $"Local access:  {localHttpsUrl}" : "")}
       Workspace URL: {httpsUrl}/webfeed.aspx[/]
 
       [silver]If you wish to access RAWeb via a different URL/domain, you will need to
@@ -555,7 +593,8 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
         var panel = new Panel(new Markup($@"
       [bold lightgreen]RAWeb is installed and ready to use![/]
 
-      [steelblue1]Web interface: {httpsUrl}[/]
+      [steelblue1]Web interface: {httpsUrl}
+      {(localHttpsUrl != httpsUrl ? $"Local access:  {localHttpsUrl}" : "")}[/]
 
       [silver]Some features (such as the workspace feature) require authentication and
       are unavailable because you chose to not enable authentication.[/]

@@ -35,6 +35,12 @@ jobs:
       - name: Build the frontend
         run: cd frontend && pnpm run build
 
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "9.0.x"
+          cache: true
+      - run: dotnet restore --locked-mode
+
       - name: Build the installer
         run: cd installer && dotnet publish -c Release
 

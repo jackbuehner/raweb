@@ -589,6 +589,14 @@ internal sealed class RAWebInstallerCommand : Command<RAWebInstallerCommand.Sett
       AnsiConsole.Write(panel);
     }
 
+    // do not auto-close the console window when running by double-clicking
+    if (Environment.UserInteractive)
+    {
+      AnsiConsole.Write("\n");
+      AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
+      Console.ReadKey(true);
+    }
+
     return 0;
   }
 }

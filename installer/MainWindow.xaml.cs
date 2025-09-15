@@ -143,8 +143,11 @@ namespace RAWebInstaller
 
       // Create menu items
       var installLaunch = new MenuItem { Header = "Custom install in console" };
-      installLaunch.Click += (s, a) =>
+      installLaunch.Click += async (s, a) =>
       {
+        // wait a moment to let the menu close
+        await Task.Delay(100);
+
         OSHelpers.ShowConsoleWindow();
         Hide(); // close the GUI window
         AnsiConsole.Console = AnsiConsole.Create(new AnsiConsoleSettings());
@@ -165,8 +168,11 @@ namespace RAWebInstaller
       };
 
       var installOnly = new MenuItem { Header = "Express install in console" };
-      installOnly.Click += (s, a) =>
+      installOnly.Click += async (s, a) =>
       {
+        // wait a moment to let the menu close
+        await Task.Delay(100);
+
         OSHelpers.ShowConsoleWindow();
         Hide(); // hide the GUI window
         AnsiConsole.Console = AnsiConsole.Create(new AnsiConsoleSettings());

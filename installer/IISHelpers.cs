@@ -10,18 +10,18 @@ namespace RAWebInstaller
   {
     // IIS features for Server (via Install-WindowsFeature)
     private static readonly string[] ServerFeatures =
-    {
+    [
         "Web-Server",
         "Web-Asp-Net45",
         "Web-Windows-Auth",
         "Web-Http-Redirect",
         "Web-Mgmt-Console",
         "Web-Basic-Auth"
-    };
+    ];
 
     // IIS features for Client (via Enable-WindowsOptionalFeature)
     private static readonly string[] ClientFeatures =
-    {
+    [
         "IIS-WebServerRole",
         "IIS-WebServer",
         "IIS-CommonHttpFeatures",
@@ -47,16 +47,18 @@ namespace RAWebInstaller
         "NetFx4-AdvSrvs",
         "NetFx4Extended-ASPNET45",
         "IIS-BasicAuthentication"
-    };
+    ];
 
     /// <summary>
-    /// Get list of missing IIS features.
+    /// Gets a list of missing IIS features that are required for RAWeb.
     /// </summary>
     public static List<string> GetMissingFeatures()
     {
+      // pick the features to check based on OS type
       var features = OSHelpers.IsServer() ? ServerFeatures : ClientFeatures;
-      var missing = new List<string>();
 
+      //. check each feature via DISM and add it to the list if missing
+      var missing = new List<string>();
       foreach (var feature in features)
       {
         if (!IsFeatureInstalled(feature))
@@ -67,7 +69,7 @@ namespace RAWebInstaller
     }
 
     /// <summary>
-    /// Check if a Windows feature is installed via DISM.
+    /// Checks if a Windows feature is installed via DISM.
     /// </summary>
     private static bool IsFeatureInstalled(string name)
     {
@@ -76,10 +78,19 @@ namespace RAWebInstaller
     }
 
     /// <summary>
-    /// Install the given features (all missing if none provided).
+    /// Installs the specified windows features.
+    /// <br /><br />
+    /// On Windows Home editions, the WebServer AddOn packages will be installed
+    /// from the C:\Windows\servicing\Packages folder first since Home editions don't have
+    /// those optional features available by default (even though the addon packages are present).
+    /// <br /><br />
+    /// On Server editions, Install-WindowsFeature is used.
+    /// <br /><br />
+    /// On Client editions, Enable-WindowsOptionalFeature is used.
     /// </summary>
     public static void InstallFeatures(IEnumerable<string>? features = null, ProgressContext? progressContext = null)
     {
+      // if no features list was provided, check for missing features
       features ??= GetMissingFeatures();
 
 
@@ -171,6 +182,13 @@ namespace RAWebInstaller
       return sites.Contains(siteNameToCheck, StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Removes an existing application from the given site.
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <param name="appName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static Exception? RemoveApplication(string siteName, string appName)
     {
       if (!SiteExists(siteName))
@@ -212,7 +230,13 @@ namespace RAWebInstaller
       }
     }
 
-
+    /// <summary>
+    /// Checks if an application with the given name exists in the specified site.
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <param name="appName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static bool ApplicationExists(string siteName, string appName)
     {
       if (!SiteExists(siteName))
@@ -240,6 +264,15 @@ namespace RAWebInstaller
       }
     }
 
+    /// <summary>
+    /// Gets information about an application in the specified site.
+    /// <br /><br />
+    /// Currently. only the physical path and application pool name are returned.
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <param name="appName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static ApplicationInfo GetApplicationInfo(string siteName, string appName)
     {
       if (!SiteExists(siteName))
@@ -288,6 +321,19 @@ namespace RAWebInstaller
       public string AppPoolName { get; } = AppPoolName;
     }
 
+
+    /// <summary>
+    /// Creates a new application in the specified site.
+    /// <br /><br />
+    /// Also sets up the necessary file system permissions for the application pool identity
+    /// and configures authentication for the /auth directory.
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <param name="appName"></param>
+    /// <param name="physicalPath"></param>
+    /// <param name="appPoolName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static Exception? CreateApplication(string siteName, string appName, string physicalPath, string appPoolName)
     {
       if (!SiteExists(siteName))
@@ -396,7 +442,6 @@ namespace RAWebInstaller
         );
         resourcesAcl.AddAccessRule(usersRule);
 
-
         // allow read and execute access to bin\SQLite.Interop.dll for the RAWeb application pool identity
         var sqliteInteropPath = Path.Combine(physicalPath, "bin", "SQLite.Interop.dll");
         if (File.Exists(sqliteInteropPath))
@@ -436,6 +481,11 @@ namespace RAWebInstaller
       }
     }
 
+    /// <summary>
+    /// Checks if an application pool with the given name exists.
+    /// </summary>
+    /// <param name="appPoolName"></param>
+    /// <returns></returns>
     public static bool AppPoolExists(string appPoolName)
     {
       try
@@ -457,6 +507,13 @@ namespace RAWebInstaller
       }
     }
 
+    /// <summary>
+    /// Creates a new application pool with the given name.
+    /// <br /><br />
+    /// The application pool will be configured to use the ApplicationPoolIdentity.
+    /// </summary>
+    /// <param name="appPoolName"></param>
+    /// <returns></returns>
     public static Exception? CreateAppPool(string appPoolName)
     {
       try
@@ -478,6 +535,11 @@ namespace RAWebInstaller
       }
     }
 
+    /// <summary>
+    /// Checks if HTTPS is enabled for the given site (i.e. if there is an HTTPS binding).
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <returns></returns>
     public static bool IsHttpsEnabled(string siteName)
     {
       try
@@ -495,6 +557,11 @@ namespace RAWebInstaller
       }
     }
 
+    /// <summary>
+    /// Checks if an HTTPS certificate is bound to the given site (i.e. if the HTTPS binding has a certificate).
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <returns></returns>
     public static bool IsHttpsCertificateBound(string siteName)
     {
       try
@@ -522,6 +589,14 @@ namespace RAWebInstaller
       }
     }
 
+    /// <summary>
+    /// Enables Windows and Basic authentication and disables anonymous authentication
+    /// for the /auth directory of the specified application in the given site.
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <param name="appName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static Exception? EnableAuthentication(string siteName, string appName)
     {
       if (!SiteExists(siteName))
@@ -548,6 +623,14 @@ namespace RAWebInstaller
       }
     }
 
+    /// <summary>
+    /// Enables HTTPS for the given site (i.e. creates an HTTPS binding on port 443 if it doesn't exist).
+    /// <br /><br />
+    /// Does not create or bind a certificate, just enables the HTTPS binding.
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static Exception? EnableHttps(string siteName)
     {
       if (!SiteExists(siteName))
@@ -575,6 +658,15 @@ namespace RAWebInstaller
       }
     }
 
+    /// <summary>
+    /// Creates a new self-signed certificate and binds it to the given site.
+    /// <br /><br />
+    /// The certificate will be created in the LocalMachine\My store with the computer's
+    /// hostname as the DNS name.
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static Exception? CreateAndBindSelfSignedCert(string siteName)
     {
       if (!SiteExists(siteName))
@@ -602,6 +694,17 @@ namespace RAWebInstaller
       }
     }
 
+
+    /// <summary>
+    /// Gets a list of all HTTPS bindings for the given site.
+    /// <br /><br />
+    /// Each binding contains the IP, port and hostname.
+    /// <br /><br />
+    /// This is useful when attempting to construct the URL to access the site.
+    /// </summary>
+    /// <param name="siteName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static List<Binding> GetHttpsBindings(string siteName)
     {
       if (!SiteExists(siteName))

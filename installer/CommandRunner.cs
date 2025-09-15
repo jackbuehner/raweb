@@ -8,6 +8,20 @@ namespace RAWebInstaller
 {
   public static class CommandRunner
   {
+    /// <summary>
+    /// Executes a command line process and captures its output.
+    /// <br /><br />
+    /// If running a powershell command, consider using RunPS() instead.
+    /// <br /><br />
+    /// If running DISM, consider using RunDism() instead.
+    /// </summary>
+    /// <param name="fileName"></param>
+    /// <param name="arguments"></param>
+    /// <param name="writeStdout"></param>
+    /// <param name="writeStderr"></param>
+    /// <param name="firstExitCode"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     public static string Run(string fileName, string arguments, bool writeStdout = false, bool writeStderr = true, int firstExitCode = 1)
     {
       var startInfo = new ProcessStartInfo
@@ -139,6 +153,13 @@ namespace RAWebInstaller
     }
 
 
+    /// <summary>
+    /// Executes a DISM command and optionally updates a progress task with progress information.
+    /// </summary>
+    /// <param name="arguments"></param>
+    /// <param name="task"></param>
+    /// <param name="writeStdout"></param>
+    /// <exception cref="InvalidOperationException"></exception>
     public static void RunDism(string arguments, ProgressTask? task, bool writeStdout = false)
     {
       var psi = new ProcessStartInfo
@@ -154,6 +175,7 @@ namespace RAWebInstaller
       using var process = new Process { StartInfo = psi };
       process.Start();
 
+      // read output line by line
       while (!process.StandardOutput.EndOfStream)
       {
         var line = process.StandardOutput.ReadLine();
@@ -164,6 +186,8 @@ namespace RAWebInstaller
           if (task == null)
             continue;
 
+          // look for progress percentage in the output line
+          // and update the task in the progress bar
           var m = Regex.Match(line, @"(\d+(\.\d+)?)%");
           if (m.Success && double.TryParse(m.Groups[1].Value, out var val))
           {

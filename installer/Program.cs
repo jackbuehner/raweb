@@ -20,9 +20,6 @@ internal class Program
 
     if (shouldLaunchGui)
     {
-      // wait 5 seconds for debugging
-      // Thread.Sleep(5000);
-
       // hide the console window
       OSHelpers.HideConsoleWindow();
 

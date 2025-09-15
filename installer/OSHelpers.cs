@@ -159,6 +159,10 @@ namespace RAWebInstaller
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+
+    /// <summary>
+    /// Hides the console window of the current process, if it has one.
+    /// </summary>
     public static void HideConsoleWindow()
     {
       // get the handle to the console window for this console app
@@ -171,6 +175,10 @@ namespace RAWebInstaller
       }
     }
 
+
+    /// <summary>
+    /// Shows the console window of the current process, if it has one.
+    /// </summary>
     public static void ShowConsoleWindow()
     {
       // get the handle to the console window for this console app
@@ -183,7 +191,4 @@ namespace RAWebInstaller
       }
     }
   }
-
-
-
 }

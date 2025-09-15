@@ -17,8 +17,45 @@ internal class Program
     string[] guiParents = ["explorer"];
     bool hasArgs = args.Length > 0;
     string parentName = OSHelpers.GetParentProcessName();
-    bool shouldLaunchGui = !hasArgs && guiParents.Contains(parentName, StringComparer.OrdinalIgnoreCase);
 
+    // uninstall mode
+    bool isUninstall = args.Length == 2 && args[0].Equals("--uninstall", StringComparison.OrdinalIgnoreCase);
+    if (isUninstall)
+    {
+      // confirm that the second argument is a valid
+      // path to an existing installation
+      // Format: Web Site Name\Folder Or Foleders Within
+      string programFilesPath = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+      string installPath = System.IO.Path.Combine(programFilesPath, "RAWeb", args[1]);
+      if (!System.IO.Directory.Exists(installPath))
+      {
+        AnsiConsole.MarkupLine("[red]The specified installation path does not exist:[/]");
+        AnsiConsole.MarkupLine($"[red]{installPath}[/]");
+        return 1;
+      }
+
+      // hide the console window
+      OSHelpers.HideConsoleWindow();
+
+      try
+      {
+        var app = new Application();
+        var wnd = new UninstallWindow("Uninstall RAWeb?", installPath, args[1]);
+        app.Run(wnd);
+        return 0;
+      }
+      catch (Exception ex)
+      {
+        OSHelpers.ShowConsoleWindow();
+        AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
+        AnsiConsole.Write(new Rule());
+        AnsiConsole.MarkupLine("[red]Failed to launch the uninstall GUI.[/]");
+        return 1;
+      }
+    }
+
+    // install mode
+    bool shouldLaunchGui = !hasArgs && guiParents.Contains(parentName, StringComparer.OrdinalIgnoreCase);
     if (shouldLaunchGui)
     {
       // hide the console window

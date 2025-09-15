@@ -27,6 +27,16 @@ namespace RAWebInstaller
       string legacyInstallDir = $@"C:\inetpub\wwwroot\RAWeb";
       bool isAlreadyInstalled = Directory.Exists(defaultInstallDir) || Directory.Exists(legacyInstallDir);
 
+      // if the only folder is App_Data, treat as not installed
+      if (isAlreadyInstalled)
+      {
+        var dirs = Directory.GetDirectories(defaultInstallDir);
+        if (dirs.Length == 1 && Path.GetFileName(dirs[0]).Equals("App_Data", StringComparison.OrdinalIgnoreCase))
+        {
+          isAlreadyInstalled = false;
+        }
+      }
+
       // set the app metadata
       var asm = Assembly.GetExecutingAssembly();
       var version = asm.GetName().Version?.ToString() ?? "unknown";

@@ -3,6 +3,8 @@ using Spectre.Console.Cli;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace RAWebInstaller
 {
@@ -577,6 +579,24 @@ namespace RAWebInstaller
             }
         );
 
+        // register an uninstall handler in the registry
+        AnsiConsole.Status()
+            .Start("Registering uninstall information...", ctx =>
+            {
+              try
+              {
+                string installLabel = $"RAWeb {(siteName == "Default Web Site" ? "" : $"– {siteName}")}{((sitePath == "/" || sitePath == "/RAWeb") ? "" : $"– {sitePath.Trim('/')}")}";
+                UninstallHelper.RegisterUninstallInformation(installLabel, installDir, siteName, sitePath);
+                AnsiConsole.MarkupLine("[green]Registered uninstall information.[/]");
+              }
+              catch (Exception ex)
+              {
+                AnsiConsole.MarkupLine("[yellow]Warning: Could not register uninstall information. You will need to manually remove the RAWeb application in IIS and delete the installation directory if you wish to uninstall RAWeb.[/]");
+                AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
+              }
+            }
+        );
+
 
         if (httpsEnabled || enableHttps)
         {
@@ -592,6 +612,20 @@ namespace RAWebInstaller
                 {
                   string installerPath = Path.Combine(installDir, "install_raweb.exe");
                   File.Copy(Environment.ProcessPath, installerPath, true);
+
+                  // and allow anyone to traverse and execute in the root RAWeb installation directory
+                  // so that the installer can be accessed by Windows
+                  var everyone = new SecurityIdentifier(WellKnownSidType.WorldSid, null);
+                  var dirInfo = new DirectoryInfo(installDir);
+                  var dirSecurity = dirInfo.GetAccessControl();
+                  var dirRule = new FileSystemAccessRule(
+                      everyone,
+                      FileSystemRights.Traverse | FileSystemRights.ReadAndExecute,
+                      InheritanceFlags.ObjectInherit,
+                      PropagationFlags.NoPropagateInherit,
+                      AccessControlType.Allow);
+                  dirSecurity.AddAccessRule(dirRule);
+                  dirInfo.SetAccessControl(dirSecurity);
                 }
                 catch (Exception ex)
                 {
@@ -733,6 +767,28 @@ namespace RAWebInstaller
 
     public ConsoleExitCode(int exitCode, Exception innerException) : base($"Exiting with code {exitCode}", innerException)
     {
+    }
+  }
+
+  public class UninstallHelper
+  {
+    public static void RegisterUninstallInformation(string installLabel, string installDir, string siteName, string sitePath)
+    {
+      string uninstallId = $@"{siteName}\{sitePath.Trim('/').Replace('/', '\\')}";
+
+      string uninstallKey =
+          $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\RAWeb_{uninstallId.Replace('\\', '_')}";
+
+      using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(uninstallKey);
+
+      key?.SetValue("DisplayName", installLabel);
+      key?.SetValue("InstallLocation", installDir);
+      key?.SetValue("Publisher", "RAWeb");
+      key?.SetValue("DisplayVersion", VersionInfo.GetVersionString());
+      key?.SetValue("DisplayIcon", Path.Combine(installDir, "install_raweb.exe"));
+      key?.SetValue("ModifyPath", Path.Combine(installDir, "install_raweb.exe"));
+      key?.SetValue("UninstallString",
+          $"\"{Path.Combine(installDir, "install_raweb.exe")}\" --uninstall \"{uninstallId}\"");
     }
   }
 }

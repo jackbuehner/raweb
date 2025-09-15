@@ -1,4 +1,8 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Management;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
@@ -109,5 +113,77 @@ namespace RAWebInstaller
 
     [GeneratedRegex(@"[^a-z0-9]+")]
     private static partial Regex SlugifyRegex();
+
+    /// <summary>
+    /// Retrieves the name of the parent process for the current process.
+    /// </summary>
+    /// <returns>
+    /// The name of the parent process if it can be determined; 
+    /// otherwise, an empty string.
+    /// </returns>
+    public static string GetParentProcessName()
+    {
+      using var currentProcess = Process.GetCurrentProcess();
+
+      try
+      {
+        int parentProcessId = 0;
+
+        // Query WMI for the parent process of the current process.
+        using (var searcher = new ManagementObjectSearcher(
+            $"SELECT ParentProcessId FROM Win32_Process WHERE ProcessId={currentProcess.Id}"))
+        using (var results = searcher.Get())
+        {
+          foreach (ManagementObject obj in results.Cast<ManagementObject>())
+          {
+            parentProcessId = Convert.ToInt32(obj["ParentProcessId"]);
+          }
+        }
+
+        // if we successfully retrieved the parent process ID, get its name.
+        if (parentProcessId > 0)
+        {
+          using var parentProcess = Process.GetProcessById(parentProcessId);
+          return parentProcess.ProcessName;
+        }
+      }
+      catch { }
+
+      // returning an empty string indicates failure.
+      return string.Empty;
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetConsoleWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    public static void HideConsoleWindow()
+    {
+      // get the handle to the console window for this console app
+      var consoleHandle = GetConsoleWindow();
+
+      // hide the console window
+      if (consoleHandle != IntPtr.Zero)
+      {
+        ShowWindow(consoleHandle, 0); // SW_HIDE = 0
+      }
+    }
+
+    public static void ShowConsoleWindow()
+    {
+      // get the handle to the console window for this console app
+      var consoleHandle = GetConsoleWindow();
+
+      // hide the console window
+      if (consoleHandle != IntPtr.Zero)
+      {
+        ShowWindow(consoleHandle, 1); // SW_SHOWNORMAL = 1
+      }
+    }
   }
+
+
+
 }

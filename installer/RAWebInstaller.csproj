@@ -5,6 +5,8 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -24,10 +26,12 @@
 		<FileVersion>1.0.0.0</FileVersion>
 		<Company>RAWeb</Company>
 		<Description>Installs RAWeb</Description>
+    <ApplicationIcon>..\aspx\wwwroot\lib\assets\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <Content Include="..\aspx\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="..\aspx\wwwroot\lib\assets\icon.ico" />
   </ItemGroup>
 
   <ItemGroup>

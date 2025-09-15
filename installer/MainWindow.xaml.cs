@@ -74,18 +74,21 @@ namespace RAWebInstaller
       ProgressBar.Visibility = Visibility.Visible;
 
       // run CLI in background so UI stays responsive
-      await Task.Run(() =>
+      int exitCode = await Task.Run(() =>
       {
         var consoleSettings = new AnsiConsoleSettings
         {
           Ansi = AnsiSupport.No,
           ColorSystem = ColorSystemSupport.NoColors,
           Interactive = InteractionSupport.No,
-          Out = new AnsiConsoleOutput(new TextBoxWriter(LogBox)),
+          Out = new AnsiConsoleOutput(new TeeTextWriter([
+            Console.Out,                // standard console output
+            new TextBlockWriter(LogBox) // also show in the GUI text block
+          ])),
         };
         AnsiConsole.Console = AnsiConsole.Create(consoleSettings);
         var cli = new CommandApp<RAWebInstallerCommand>();
-        cli.Run(["--express", "--exit-on-complete", "--install-iis"]);
+        return cli.Run(["--express", "--exit-on-complete", "--install-iis"]);
       });
 
       ProgressBar.Visibility = Visibility.Collapsed;
@@ -93,6 +96,20 @@ namespace RAWebInstaller
       InstallButtonDrop.IsEnabled = true;
       CancelButton.IsEnabled = true;
       LaunchButton.IsEnabled = true;
+
+      // if the CLI failed, show a message box and return
+      if (exitCode != 0)
+      {
+        ShowExitCodeError(exitCode);
+        LogBox.Text = $"Installation failed with exit code {exitCode}.";
+
+        OSHelpers.ShowConsoleWindow();
+        AnsiConsole.Write("\n");
+        AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
+        Console.ReadKey(true);
+        OSHelpers.HideConsoleWindow();
+        return;
+      }
 
       // if the launch when ready ckechbox was checked before we finished,
       // we need to launch the browser to the local RAWeb URL
@@ -128,20 +145,44 @@ namespace RAWebInstaller
       installLaunch.Click += (s, a) =>
       {
         OSHelpers.ShowConsoleWindow();
-        Close(); // close the GUI window
+        Hide(); // close the GUI window
         AnsiConsole.Console = AnsiConsole.Create(new AnsiConsoleSettings());
         var cli = new CommandApp<RAWebInstallerCommand>();
-        cli.Run(["--express", "false"]);
+
+        int exitCode = cli.Run(["--express", "false"]);
+
+        // if the CLI failed, show a message box and return
+        if (exitCode != 0)
+        {
+          ShowExitCodeError(exitCode);
+          AnsiConsole.Write("\n");
+          AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
+          Console.ReadKey(true);
+        }
+
+        Close();
       };
 
       var installOnly = new MenuItem { Header = "Express install in console" };
       installOnly.Click += (s, a) =>
       {
         OSHelpers.ShowConsoleWindow();
-        Close(); // close the GUI window
+        Hide(); // hide the GUI window
         AnsiConsole.Console = AnsiConsole.Create(new AnsiConsoleSettings());
         var cli = new CommandApp<RAWebInstallerCommand>();
-        cli.Run(["--express", "--install-iis"]);
+
+        int exitCode = cli.Run(["--express", "--install-iis"]);
+
+        // if the CLI failed, show a message box and return
+        if (exitCode != 0)
+        {
+          ShowExitCodeError(exitCode);
+          AnsiConsole.Write("\n");
+          AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
+          Console.ReadKey(true);
+        }
+
+        Close();
       };
 
       // Add items
@@ -152,6 +193,22 @@ namespace RAWebInstaller
       menu.PlacementTarget = InstallButtonDrop;
       menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
       menu.IsOpen = true;
+    }
+
+    private void ShowExitCodeError(int exitCode)
+    {
+      try
+      {
+        ThemedMessageBox.Show(this, $"Installation failed with exit code {exitCode}. See log for details.", "Error");
+      }
+      catch (Exception ex)
+      {
+        OSHelpers.ShowConsoleWindow();
+        AnsiConsole.Write("\n");
+        AnsiConsole.WriteException(ex);
+        AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
+        Console.ReadKey(true);
+      }
     }
 
     private void LaunchButton_Click(object sender, RoutedEventArgs e)
@@ -187,16 +244,17 @@ namespace RAWebInstaller
     }
   }
 
-  public class TextBoxWriter : TextWriter
+  /// <summary>
+  /// A class that writes text -- including stdout -- to a WPF TextBlock.
+  /// <br /><br />
+  /// This is usedful for redirecting logs to a single-line block box in a GUI.
+  /// </summary>
+  /// <param name="testBlock"></param>
+  public class TextBlockWriter(TextBlock testBlock) : TextWriter
   {
-    private readonly System.Windows.Controls.TextBlock _testBlock;
+    private readonly TextBlock _testBlock = testBlock;
     private StringBuilder _buffer = new();
     public override Encoding Encoding => Encoding.UTF8;
-
-    public TextBoxWriter(System.Windows.Controls.TextBlock testBlock)
-    {
-      _testBlock = testBlock;
-    }
 
     public override void Write(char value)
     {
@@ -240,6 +298,38 @@ namespace RAWebInstaller
       {
         _testBlock.Text = line;
       });
+    }
+  }
+
+  public class TeeTextWriter : TextWriter
+  {
+    private readonly TextWriter[] _writers;
+
+    public TeeTextWriter(params TextWriter[] writers)
+    {
+      _writers = writers ?? throw new ArgumentNullException(nameof(writers));
+    }
+
+    public override Encoding Encoding => _writers[0].Encoding;
+
+    public override void Write(char value)
+    {
+      foreach (var w in _writers) w.Write(value);
+    }
+
+    public override void Write(string? value)
+    {
+      foreach (var w in _writers) w.Write(value);
+    }
+
+    public override void WriteLine(string? value)
+    {
+      foreach (var w in _writers) w.WriteLine(value);
+    }
+
+    public override void Flush()
+    {
+      foreach (var w in _writers) w.Flush();
     }
   }
 }

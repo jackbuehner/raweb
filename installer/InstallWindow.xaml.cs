@@ -10,11 +10,11 @@ using Spectre.Console.Cli;
 
 namespace RAWebInstaller
 {
-  public partial class MainWindow : Window
+  public partial class InstallWindow : Window
   {
 
     readonly string defaultLocalHttpsUrl = $"https://{Environment.MachineName}/RAWeb";
-    public MainWindow()
+    public InstallWindow()
     {
       InitializeComponent();
       string rawebCodeDir = Path.Combine(AppContext.BaseDirectory, "wwwroot");

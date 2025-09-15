@@ -27,7 +27,7 @@ internal class Program
       try
       {
         var app = new Application();
-        var wnd = new MainWindow();
+        var wnd = new InstallWindow();
         app.Run(wnd);
         return 0;
       }

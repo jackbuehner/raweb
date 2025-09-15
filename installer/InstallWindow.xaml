@@ -1,4 +1,4 @@
-<Window x:Class="RAWebInstaller.MainWindow"
+<Window x:Class="RAWebInstaller.InstallWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="RAWeb Installer"

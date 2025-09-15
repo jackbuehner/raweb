@@ -54,6 +54,16 @@ namespace RAWebInstaller
       }
     }
 
+    private void MinimizeWindow(object sender, RoutedEventArgs e)
+    {
+      WindowState = WindowState.Minimized;
+    }
+
+    private void CloseWindow(object sender, RoutedEventArgs e)
+    {
+      Close();
+    }
+
     private async void InstallButton_Click(object sender, RoutedEventArgs e)
     {
       InstallButton.IsEnabled = false;
@@ -92,6 +102,7 @@ namespace RAWebInstaller
 
         // close the GUI window
         Close();
+        return;
       }
 
       // show the launch button instead of the cancel button
@@ -106,7 +117,11 @@ namespace RAWebInstaller
 
     private void DropDown_Click(object sender, RoutedEventArgs e)
     {
-      var menu = new ContextMenu();
+      var menu = new ContextMenu
+      {
+        FontFamily = new System.Windows.Media.FontFamily("Segoe UI"),
+        FontSize = 14,
+      };
 
       // Create menu items
       var installLaunch = new MenuItem { Header = "Custom install in console" };

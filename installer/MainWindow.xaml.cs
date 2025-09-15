@@ -85,7 +85,7 @@ namespace RAWebInstaller
         };
         AnsiConsole.Console = AnsiConsole.Create(consoleSettings);
         var cli = new CommandApp<RAWebInstallerCommand>();
-        cli.Run(["--express", "--exit-on-complete"]);
+        cli.Run(["--express", "--exit-on-complete", "--install-iis"]);
       });
 
       ProgressBar.Visibility = Visibility.Collapsed;
@@ -141,7 +141,7 @@ namespace RAWebInstaller
         Close(); // close the GUI window
         AnsiConsole.Console = AnsiConsole.Create(new AnsiConsoleSettings());
         var cli = new CommandApp<RAWebInstallerCommand>();
-        cli.Run(["--express"]);
+        cli.Run(["--express", "--install-iis"]);
       };
 
       // Add items

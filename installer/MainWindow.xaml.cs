@@ -17,8 +17,9 @@ namespace RAWebInstaller
     public MainWindow()
     {
       InitializeComponent();
+      string rawebCodeDir = Path.Combine(AppContext.BaseDirectory, "wwwroot");
       this.Icon = new BitmapImage(
-        new Uri("wwwroot/lib/assets/icon.ico", UriKind.Relative));
+        new Uri(Path.Combine(rawebCodeDir, "lib/assets/icon.ico"), UriKind.Absolute));
 
       // check if RAWeb is already installed (or partially installed)
       // by seeing if the default installation directory exists

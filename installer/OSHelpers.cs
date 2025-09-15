@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
@@ -70,6 +71,56 @@ namespace RAWebInstaller
 
       Directory.CreateDirectory(fullPath);
       return fullPath;
+    }
+
+    /// <summary>
+    /// Takes ownership of a file or directory for the specified user account,
+    /// using the Windows `takeown.exe` command.
+    /// </summary>
+    /// <param name="path">File or directory path</param>
+    /// <param name="account">Optional Windows account (defaults to BUILTIN\Administrators).</param>
+    public static void TakeOwnership(string path, NTAccount? account = null)
+    {
+      if (!File.Exists(path) && !Directory.Exists(path))
+        throw new FileNotFoundException($"Path not found: {path}");
+
+      account ??= new NTAccount("BUILTIN", "Administrators");
+      string accountName = account.Value;
+
+      // `/r` = recursive, `/d y` = assume Yes on prompts
+      // `/a` = give ownership to Administrators group
+      // `/user <name>` = give ownership to specific user
+
+      string takeownArgs;
+      if (accountName.Equals("BUILTIN\\Administrators", StringComparison.OrdinalIgnoreCase) ||
+          accountName.Equals("Administrators", StringComparison.OrdinalIgnoreCase))
+      {
+        takeownArgs = $"/f \"{path}\" /r /d y /a";
+      }
+      else
+      {
+        takeownArgs = $"/f \"{path}\" /r /d y /user \"{accountName}\"";
+      }
+
+      CommandRunner.Run("takeown", takeownArgs);
+    }
+
+    /// <summary>
+    /// Takes ownership of a file or directory and grants full control
+    /// permissions to the specified account (defaults to Administrators).
+    /// </summary>
+    /// <param name="path">The file or directory path</param>
+    /// <param name="account">Optional Windows account (defaults to BUILTIN\Administrators).</param>
+    public static void TakeControl(string path, NTAccount? account = null)
+    {
+      account ??= new NTAccount("BUILTIN", "Administrators");
+
+      TakeOwnership(path, account);
+
+      // grant full control recursively using icacls
+      string accountName = account.Value;
+      string icaclsArgs = $"\"{path}\" /grant \"{accountName}\":F /t /c";
+      CommandRunner.Run("icacls", icaclsArgs, allowedExitCodes: [0]);
     }
 
     /// <summary>

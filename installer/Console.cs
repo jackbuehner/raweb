@@ -365,6 +365,7 @@ namespace RAWebInstaller
                 if (isLegacyInstallLocation)
                 {
                   ctx.Status = "Copying existing RAWeb data to new installation location...";
+                  OSHelpers.TakeControl(appInfo.PhysicalPath);
                   {
                     if (!Directory.Exists(installDir))
                     {
@@ -386,6 +387,11 @@ namespace RAWebInstaller
         AnsiConsole.Status()
             .Start("Installing RAWeb files...", ctx =>
             {
+              if (Directory.Exists(installDir))
+              {
+                OSHelpers.TakeControl(installDir);
+              }
+
               // if the application already exists in IIS, remove it first
               try
               {

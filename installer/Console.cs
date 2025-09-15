@@ -392,6 +392,16 @@ namespace RAWebInstaller
                 OSHelpers.TakeControl(installDir);
               }
 
+              // stop the eixsting application pool (if this is an upgrade/reinstall)
+              // before we try to remove the application and move files (some files
+              // may have locks on them otherwise)
+              ctx.Status = "Checking for existing application pool...";
+              if (IISHelpers.AppPoolExists(appPoolName))
+              {
+                ctx.Status = "Stopping existing application pool...";
+                IISHelpers.StopAppPool(appPoolName);
+              }
+
               // if the application already exists in IIS, remove it first
               try
               {
@@ -520,6 +530,11 @@ namespace RAWebInstaller
               {
                 IISHelpers.CreateAppPool(appPoolName);
                 AnsiConsole.MarkupLineInterpolated($"[green]Created application pool '{appPoolName}'.[/]");
+              }
+              else
+              {
+                ctx.Status = "Starting app pool...";
+                IISHelpers.StartAppPool(appPoolName);
               }
 
               // create the application in the specified website

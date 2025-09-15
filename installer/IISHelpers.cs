@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.IO;
-using System.Management.Automation;
+using System.Management;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Text.RegularExpressions;
 using Spectre.Console;
 
 namespace RAWebInstaller
@@ -321,6 +323,140 @@ namespace RAWebInstaller
       public string AppPoolName { get; } = AppPoolName;
     }
 
+    /// <summary>
+    /// Stops the specified application pool.
+    /// <br /><br />
+    /// This will unload any worker processes (w3wp.exe) that may lock files,
+    /// such as SQLite.Interop.dll.
+    /// </summary>
+    /// <param name="appPoolName"></param>
+    /// <param name="gracefulTimeoutSeconds">Time to wait for a graceful shutdown before forcing the shutdown (default: 5 seconds). Specify 0 seconds to disable force shutdown of worker processes.</param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public static void StopAppPool(string appPoolName, int gracefulTimeoutSeconds = 5)
+    {
+      if (!AppPoolExists(appPoolName))
+      {
+        throw new InvalidOperationException(
+            $"Application pool '{appPoolName}' does not exist."
+        );
+      }
+
+      try
+      {
+        // ask IIS tp stop gracefully
+        CommandRunner.RunPS($@"
+          Import-Module WebAdministration
+          Stop-WebAppPool -Name ""{appPoolName}""
+        ");
+
+        // give IIS a change to shut down the worker processes
+        var sw = Stopwatch.StartNew();
+        while (sw.Elapsed < TimeSpan.FromSeconds(gracefulTimeoutSeconds))
+        {
+          // chick if there are still worker processes for this app pool
+          if (!GetWorkerProcesses()
+              .Any(p => string.Equals(
+                  p.AppPool, appPoolName, StringComparison.OrdinalIgnoreCase)))
+          {
+            return; // graceful stop succeeded
+          }
+          Thread.Sleep(500); // check again in
+        }
+
+        // return early if we are not allowed to force kill
+        if (gracefulTimeoutSeconds <= 0)
+        {
+          return;
+        }
+
+        // if the worker processes are still running, kill them
+        foreach (var (pid, pool) in GetWorkerProcesses())
+        {
+          if (string.Equals(pool, appPoolName,
+                            StringComparison.OrdinalIgnoreCase))
+          {
+            try
+            {
+              var proc = Process.GetProcessById(pid);
+              proc.Kill();
+              proc.WaitForExit(2000);
+            }
+            catch (Exception killEx)
+            {
+              AnsiConsole.MarkupLine(
+                  $"[yellow]Warning: failed to kill w3wp for pool '{pool}' (PID {pid}): {killEx.Message}[/]");
+            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        AnsiConsole.MarkupLine($"[red]Failed to stop app pool '{appPoolName}':[/]");
+        AnsiConsole.WriteException(
+            ex,
+            ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks
+        );
+        throw;
+      }
+
+
+    }
+
+    /// <summary>
+    /// Gets a list of all running IIS worker processes (w3wp.exe) and their associated application pools.
+    /// </summary>
+    /// <returns></returns>
+    static IEnumerable<(int Pid, string AppPool)> GetWorkerProcesses()
+    {
+      var searcher = new ManagementObjectSearcher(
+          "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name = 'w3wp.exe'");
+
+      foreach (ManagementObject obj in searcher.Get().Cast<ManagementObject>())
+      {
+        var pid = (uint)obj["ProcessId"];
+        var cmd = obj["CommandLine"]?.ToString() ?? "";
+
+        var match = Regex.Match(cmd, @"-ap\s+(""([^""]+)""|(\S+))");
+        if (match.Success)
+        {
+          yield return ((int)pid,
+              match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value);
+        }
+      }
+    }
+
+    /// <summary>
+    /// Starts the specified application pool.
+    /// </summary>
+    /// <param name="appPoolName"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public static void StartAppPool(string appPoolName)
+    {
+      if (!AppPoolExists(appPoolName))
+      {
+        throw new InvalidOperationException(
+            $"Application pool '{appPoolName}' does not exist."
+        );
+      }
+
+      try
+      {
+        CommandRunner.RunPS($@"
+          Import-Module WebAdministration
+          Start-WebAppPool -Name ""{appPoolName}""
+        ");
+      }
+      catch (Exception ex)
+      {
+        AnsiConsole.MarkupLine($"[red]Failed to start app pool '{appPoolName}':[/]");
+        AnsiConsole.WriteException(
+            ex,
+            ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks
+        );
+        throw;
+      }
+    }
+
 
     /// <summary>
     /// Creates a new application in the specified site.
@@ -414,6 +550,17 @@ namespace RAWebInstaller
         );
         appDataAcl.AddAccessRule(appDataRule);
 
+        // allow Administrators read access to App_Data so they can open the folder
+        // and choose to grant themselves write access in order to add RDP files
+        var adminAppDataRule = new FileSystemAccessRule(
+          localAdminSid,
+          FileSystemRights.Read,
+          InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+          PropagationFlags.None,
+          AccessControlType.Allow
+        );
+        appDataAcl.AddAccessRule(adminAppDataRule);
+
         // allow read access for Everyone to the auth directory (login fails otherwise)
         var authPath = Path.Combine(physicalPath, "auth");
         var authDirInfo = new DirectoryInfo(authPath);
@@ -442,22 +589,20 @@ namespace RAWebInstaller
         );
         resourcesAcl.AddAccessRule(usersRule);
 
-        // allow read and execute access to bin\SQLite.Interop.dll for the RAWeb application pool identity
-        var sqliteInteropPath = Path.Combine(physicalPath, "bin", "SQLite.Interop.dll");
-        if (File.Exists(sqliteInteropPath))
-        {
-          var sqliteInteropFileInfo = new FileInfo(sqliteInteropPath);
-          var sqliteInteropAcl = sqliteInteropFileInfo.GetAccessControl();
-          var sqliteInteropRule = new FileSystemAccessRule(
+        // apply read and execute access on all DLLs for the RAWeb app pool identity
+        var binPath = Path.Combine(physicalPath, "bin");
+        var binDirInfo = new DirectoryInfo(binPath);
+        var binAcl = binDirInfo.GetAccessControl();
+        var binRule = new FileSystemAccessRule(
             appPoolIdentity,
             FileSystemRights.ReadAndExecute,
-            InheritanceFlags.None,
+            InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
             PropagationFlags.None,
             AccessControlType.Allow
-          );
-          sqliteInteropAcl.AddAccessRule(sqliteInteropRule);
-          sqliteInteropFileInfo.SetAccessControl(sqliteInteropAcl);
-        }
+        );
+        binAcl.AddAccessRule(binRule);
+        binDirInfo.SetAccessControl(binAcl);
+
 
         rawebDirInfo.SetAccessControl(rawebAcl);
         appDataDirInfo.SetAccessControl(appDataAcl);

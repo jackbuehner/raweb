@@ -585,6 +585,21 @@ namespace RAWebInstaller
           AnsiConsole.Status()
             .Start("Finalizing...", ctx =>
             {
+              // save a copy of this installer in the installation directory for future reference
+              if (File.Exists(Environment.ProcessPath))
+              {
+                try
+                {
+                  string installerPath = Path.Combine(installDir, "install_raweb.exe");
+                  File.Copy(Environment.ProcessPath, installerPath, true);
+                }
+                catch (Exception ex)
+                {
+                  AnsiConsole.MarkupLine("[yellow]Warning: Could not save a copy of the installer to the installation directory.[/]");
+                  AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
+                }
+              }
+
               // if we migrated from the old install location, delete the old files now
               if (shouldDeleteLegacyInstallLocation && Directory.Exists("C:\\inetpub\\RAWeb"))
               {

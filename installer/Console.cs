@@ -370,7 +370,7 @@ namespace RAWebInstaller
                     {
                       Directory.CreateDirectory(installDir);
                     }
-                    CommandRunner.Run("robocopy", $"\"{appInfo.PhysicalPath}\" \"{installDir}\" /E /COPYALL /DCOPY:T", writeStdout: false);
+                    CommandRunner.Run("robocopy", $"\"{appInfo.PhysicalPath}\" \"{installDir}\" /E /COPYALL /DCOPY:T", writeStdout: false, allowedExitCodes: [1, 3]);
                   }
                 }
                 else
@@ -403,10 +403,11 @@ namespace RAWebInstaller
               //  - App_Data: where the RAWeb data is stored
               //  - resources: where RAWeb used to read RDP files and icons (now in App_Data\resources)
               //  - multiuser-resources: where RAWeb used to read RDP files and icons and assigned permissions based on folder name (now in App_Data\multiuser-resources)
+              // note: robocopy exit code 1 means success
               bool needsRestore = false;
               string appDataDir = Path.Combine(installDir, "App_Data");
-              string oldResourcesDir = Path.Combine(appDataDir, "resources");
-              string oldMultiuserResourcesDir = Path.Combine(appDataDir, "multiuser-resources");
+              string oldResourcesDir = Path.Combine(installDir, "resources");
+              string oldMultiuserResourcesDir = Path.Combine(installDir, "multiuser-resources");
               string tempResourcesDir = Path.Combine(OSHelpers.GetTempFolder(), "raweb_backup_resources");
               if (!Directory.Exists(tempResourcesDir))
               {
@@ -415,17 +416,17 @@ namespace RAWebInstaller
               if (Directory.Exists(appDataDir))
               {
                 needsRestore = true;
-                CommandRunner.Run("robocopy", $"\"{appDataDir}\" \"{tempResourcesDir}/App_Data\" /E /COPYALL /DCOPY:T /B", writeStdout: false);
+                CommandRunner.Run("robocopy", $"\"{appDataDir}\" \"{tempResourcesDir}/App_Data\" /E /COPYALL /DCOPY:T /B", writeStdout: false, allowedExitCodes: [1]);
               }
               if (Directory.Exists(oldResourcesDir))
               {
                 needsRestore = true;
-                CommandRunner.Run("robocopy", $"\"{oldResourcesDir}\" \"{tempResourcesDir}/resources\" /E /COPYALL /DCOPY:T /B", writeStdout: false);
+                CommandRunner.Run("robocopy", $"\"{oldResourcesDir}\" \"{tempResourcesDir}/resources\" /E /COPYALL /DCOPY:T /B", writeStdout: false, allowedExitCodes: [1]);
               }
               if (Directory.Exists(oldMultiuserResourcesDir))
               {
                 needsRestore = true;
-                CommandRunner.Run("robocopy", $"\"{oldMultiuserResourcesDir}\" \"{tempResourcesDir}/multiuser-resources\" /E /COPYALL /DCOPY:T /B", writeStdout: false);
+                CommandRunner.Run("robocopy", $"\"{oldMultiuserResourcesDir}\" \"{tempResourcesDir}/multiuser-resources\" /E /COPYALL /DCOPY:T /B", writeStdout: false, allowedExitCodes: [1]);
               }
 
               // If the appSettings are in Web.config, we need to extract them and
@@ -477,23 +478,25 @@ namespace RAWebInstaller
               // copy the RAWeb files from the installer to the installation directory
               ctx.Status = "Installing files...";
               Directory.CreateDirectory(installDir);
-              CommandRunner.Run("robocopy", $"\"{rawebCodeDir}\" \"{installDir}\" /E /COPY:DAT /DCOPY:T", writeStdout: false);
+              CommandRunner.Run("robocopy", $"\"{rawebCodeDir}\" \"{installDir}\" /E /COPY:DAT /DCOPY:T", writeStdout: false, allowedExitCodes: [1]);
 
               // restore the app data folders if they were backed up
+              // note: exit code 1 means success
+              // note: exit code 3  means that there were already some files in the destination BUT all files were successfully copied, which is expected because RAWeb has default files in App_Data
               if (needsRestore)
               {
                 ctx.Status = "Restoring app data resources from previous installation...";
                 if (Directory.Exists(Path.Combine(tempResourcesDir, "App_Data")))
                 {
-                  CommandRunner.Run("robocopy", $"\"{Path.Combine(tempResourcesDir, "App_Data")}\" \"{appDataDir}\" /E /COPYALL /DCOPY:T /B", writeStdout: false);
+                  CommandRunner.Run("robocopy", $"\"{Path.Combine(tempResourcesDir, "App_Data")}\" \"{appDataDir}\" /E /COPYALL /DCOPY:T /B", writeStdout: false, allowedExitCodes: [1, 3]);
                 }
                 if (Directory.Exists(Path.Combine(tempResourcesDir, "resources")))
                 {
-                  CommandRunner.Run("robocopy", $"\"{Path.Combine(tempResourcesDir, "resources")}\" \"{Path.Combine(appDataDir, "resources")}\" /E /COPYALL /DCOPY:T /B", writeStdout: false);
+                  CommandRunner.Run("robocopy", $"\"{Path.Combine(tempResourcesDir, "resources")}\" \"{Path.Combine(appDataDir, "resources")}\" /E /COPYALL /DCOPY:T /B", writeStdout: false, allowedExitCodes: [1, 3]);
                 }
                 if (Directory.Exists(Path.Combine(tempResourcesDir, "multiuser-resources")))
                 {
-                  CommandRunner.Run("robocopy", $"\"{Path.Combine(tempResourcesDir, "multiuser-resources")}\" \"{Path.Combine(appDataDir, "multiuser-resources")}\" /E /COPYALL /DCOPY:T /B", writeStdout: false);
+                  CommandRunner.Run("robocopy", $"\"{Path.Combine(tempResourcesDir, "multiuser-resources")}\" \"{Path.Combine(appDataDir, "multiuser-resources")}\" /E /COPYALL /DCOPY:T /B", writeStdout: false, allowedExitCodes: [1, 3]);
                 }
                 Directory.Delete(tempResourcesDir, true);
               }

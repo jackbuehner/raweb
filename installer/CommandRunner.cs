@@ -22,8 +22,10 @@ namespace RAWebInstaller
     /// <param name="firstExitCode"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    public static string Run(string fileName, string arguments, bool writeStdout = false, bool writeStderr = true, int firstExitCode = 1)
+    public static string Run(string fileName, string arguments, bool writeStdout = false, bool writeStderr = true, int[]? allowedExitCodes = null)
     {
+      allowedExitCodes ??= [0];
+
       var startInfo = new ProcessStartInfo
       {
         FileName = fileName,
@@ -66,9 +68,8 @@ namespace RAWebInstaller
 
       var output = buffer.ToString().Trim();
 
-      if (process.ExitCode < 0 || process.ExitCode > firstExitCode)
+      if (process.ExitCode < 0 || !allowedExitCodes.Contains(process.ExitCode))
       {
-        // robocopy treats codes < 8 as success or success with notes/error (e.g. some files skipped)
         throw new InvalidOperationException(
             $"Command '{fileName} {arguments}' failed with exit code {process.ExitCode}.{Environment.NewLine}{output}"
         );

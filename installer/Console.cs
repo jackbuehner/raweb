@@ -349,6 +349,7 @@ namespace RAWebInstaller
         }
 
         // check if an IIS application already exists and does not point to the same directory
+        bool shouldDeleteLegacyInstallLocation = false;
         AnsiConsole.Status()
           .Start("Checking existing IIS applications for conflicts...", ctx =>
           {
@@ -372,6 +373,7 @@ namespace RAWebInstaller
                       Directory.CreateDirectory(installDir);
                     }
                     CommandRunner.Run("robocopy", $"\"{appInfo.PhysicalPath}\" \"{installDir}\" /E /COPYALL /DCOPY:T", writeStdout: false, allowedExitCodes: [1, 3]);
+                    shouldDeleteLegacyInstallLocation = true;
                   }
                 }
                 else
@@ -583,6 +585,25 @@ namespace RAWebInstaller
           AnsiConsole.Status()
             .Start("Finalizing...", ctx =>
             {
+              // if we migrated from the old install location, delete the old files now
+              if (shouldDeleteLegacyInstallLocation && Directory.Exists("C:\\inetpub\\RAWeb"))
+              {
+                ctx.Status = "Completing migration...";
+                try
+                {
+                  OSHelpers.TakeControl("C:\\inetpub\\RAWeb");
+                  Directory.Delete("C:\\inetpub\\RAWeb", true);
+                  AnsiConsole.MarkupLine("[green]Removed old installation from C:\\inetpub\\RAWeb.[/]");
+                }
+                catch (Exception ex)
+                {
+                  AnsiConsole.MarkupLine("[yellow]Warning: Could not remove old installation files from C:\\inetpub\\RAWeb. You may need to remove them manually.[/]");
+                  AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
+                }
+              }
+
+              // determine the URL to access the site
+              ctx.Status = "Finalizing...";
               var foundSiteBindings = IISHelpers.GetHttpsBindings("Default Web Site")
                 .Where(b => b.IP == "*")
                 .OrderBy(b => string.IsNullOrEmpty(b.Hostname))

@@ -24,6 +24,7 @@
 		<Product>RAWeb Installer</Product>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
+		<Version>1.0.0.0</Version>
 		<Company>RAWeb</Company>
 		<Description>Installs RAWeb</Description>
     <ApplicationIcon>..\aspx\wwwroot\lib\assets\icon.ico</ApplicationIcon>

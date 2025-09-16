@@ -212,7 +212,7 @@ namespace RAWebInstaller
             }
             catch (InvalidOperationException ex)
             {
-              AnsiConsole.MarkupLine($"[red]Error installing IIS features: {ex.Message}[/]");
+              AnsiConsole.MarkupLineInterpolated($"[red]Error installing IIS features: {ex.Message}[/]");
               throw new ConsoleExitCode(1);
             }
           }

@@ -56,7 +56,7 @@ namespace RAWebInstaller
         if (!string.IsNullOrEmpty(e.Data))
         {
           buffer.AppendLine(e.Data);
-          if (writeStderr) AnsiConsole.WriteLine($"[red]{e.Data}[/]"); // error output
+          if (writeStderr) AnsiConsole.MarkupLine($"[red]{e.Data}[/]"); // error output
         }
       };
 
@@ -146,6 +146,7 @@ namespace RAWebInstaller
         var err = string.Join(Environment.NewLine, ps.Streams.Error);
         if (!string.IsNullOrEmpty(err))
         {
+          AnsiConsole.MarkupLineInterpolated($"[red]{err}[/]");
           throw new InvalidOperationException(err);
         }
       }

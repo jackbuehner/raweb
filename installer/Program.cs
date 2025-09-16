@@ -25,7 +25,6 @@ internal class Program
       // hide the console window
       OSHelpers.HideConsoleWindow();
 
-
       try
       {
         var app = new Application();
@@ -47,7 +46,7 @@ internal class Program
     }
 
     // install mode
-    bool shouldLaunchGui = !hasArgs && guiParents.Contains(parentName, StringComparer.OrdinalIgnoreCase);
+    bool shouldLaunchGui = (!hasArgs && (guiParents.Contains(parentName, StringComparer.OrdinalIgnoreCase) || string.IsNullOrEmpty(parentName))) || args.Contains("--force-gui");
     if (shouldLaunchGui)
     {
       // hide the console window
@@ -70,6 +69,9 @@ internal class Program
         AnsiConsole.Write(new Rule());
       }
     }
+
+    AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
+    Console.ReadKey(true);
 
     var cli = new CommandApp<RAWebInstallerCommand>();
     return cli.Run(args);

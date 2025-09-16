@@ -40,8 +40,7 @@ namespace RAWebInstaller
     public static bool IsSupportedOS()
     {
       int requiredServerBuild = 14393; // Server 2016
-      int requiredClientBuild = 10240; // Windows 10 1507
-      int requiredClientHomeBuild = 18362; // Windows 10 19H1
+      int requiredClientBuild = 14393; // Windows 10 1607
 
       using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
       string buildStr = key?.GetValue("CurrentBuildNumber")?.ToString() ?? ""; // major build number
@@ -52,8 +51,6 @@ namespace RAWebInstaller
 
       if (IsServer())
         return build > requiredServerBuild || (build == requiredServerBuild && ubr >= 0);
-      else if (IsHome())
-        return build > requiredClientHomeBuild || (build == requiredClientHomeBuild && ubr >= 0);
       else
         return build > requiredClientBuild || (build == requiredClientBuild && ubr >= 0);
     }

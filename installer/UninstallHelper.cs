@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 
 namespace RAWebInstaller;
 
@@ -58,23 +59,46 @@ public class UninstallHelper
   {
     try
     {
+      if (string.IsNullOrWhiteSpace(exePath))
+        return;
 
       string exeName = Path.GetFileName(exePath);
+      string? dirPath = Path.GetDirectoryName(exePath);
+
       string batPath = Path.Combine(Path.GetTempPath(), "selfdelete.bat");
 
-      string script = $@"
-@echo off
-:waitloop
-tasklist /fi ""imagename eq {exeName}"" | find /i ""{exeName}"" > nul
-if not errorlevel 1 (
-    timeout /t 1 /nobreak > nul
-    goto waitloop
-)
-del ""{exePath}""
-del ""%~f0""
-";
+      var sb = new StringBuilder();
+      sb.AppendLine("@echo off");
+      sb.AppendLine(":waitloop");
 
-      File.WriteAllText(batPath, script);
+      // wait for all processes with this name to exit,
+      // and then delete the exe
+      sb.AppendLine($"tasklist /fi \"imagename eq {exeName}\" | find /i \"{exeName}\" > nul");
+      sb.AppendLine("if not errorlevel 1 (");
+      sb.AppendLine("    timeout /t 1 /nobreak > nul");
+      sb.AppendLine("    goto waitloop");
+      sb.AppendLine(")");
+      sb.AppendLine($"del \"{exePath}\"");
+
+      // attempt to delete parent directories if they are empty
+      if (!string.IsNullOrEmpty(dirPath))
+      {
+        sb.AppendLine($"set \"curDir={dirPath}\"");
+        sb.AppendLine(":cleanuploop");
+        sb.AppendLine("if exist \"%curDir%\" (");
+        sb.AppendLine("    dir /b \"%curDir%\" | findstr . >nul");
+        sb.AppendLine("    if errorlevel 1 (");
+        sb.AppendLine("        rd \"%curDir%\"");
+        sb.AppendLine("        for %%a in (\"%curDir%\\..\") do set \"curDir=%%~fa\"");
+        sb.AppendLine("        goto cleanuploop");
+        sb.AppendLine("    )");
+        sb.AppendLine(")");
+      }
+
+      // delete the batch file itself
+      sb.AppendLine("del \"%~f0\"");
+
+      File.WriteAllText(batPath, sb.ToString());
 
       System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
       {
@@ -85,10 +109,11 @@ del ""%~f0""
     }
     catch
     {
+      throw;
     }
   }
 
-  public async static void Uninstall(string uninstallId, bool keepAppData, Func<string, bool, bool?> SetStatus)
+  public static void Uninstall(string uninstallId, bool keepAppData, Func<string, bool, bool?> SetStatus)
   {
     SetStatus("Uninstalling...", true);
 
@@ -145,8 +170,6 @@ del ""%~f0""
     // finish with a small delay because the uninstall process is
     // so fast that it may look broken without this delay
     SetStatus("Uninstalling...", true);
-    await Task.Delay(1000);
     SetStatus("", false);
-
   }
 }

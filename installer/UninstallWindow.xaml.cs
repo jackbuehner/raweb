@@ -24,7 +24,7 @@ namespace RAWebInstaller
       return null;
     }
 
-    private void Uninstall_Click(object sender, RoutedEventArgs e)
+    private async void Uninstall_Click(object sender, RoutedEventArgs e)
     {
       SetStatus("Uninstalling...", true);
       UninstallButton.IsEnabled = false;
@@ -33,18 +33,31 @@ namespace RAWebInstaller
       try
       {
         bool keepAppData = !(RemoveAppDataCheckBox.IsChecked ?? false);
-        UninstallHelper.Uninstall(UninstallId, keepAppData, SetStatus);
+        await Task.Run(() =>
+        {
+          UninstallHelper.Uninstall(UninstallId, keepAppData, (status, showProgress) =>
+          {
+            // Marshal status updates back to UI thread
+            Dispatcher.Invoke(() => SetStatus(status, showProgress));
+            return null;
+          });
+        });
+
+        MessageTitle.Text = "Uninstall Complete";
+        MessageText.Text = "The application has been successfully uninstalled.";
+        CancelButton.Content = "Close";
+        UninstallButton.Visibility = Visibility.Collapsed;
+        RemoveAppDataCheckBox.Visibility = Visibility.Collapsed;
       }
       catch (FileNotFoundException ex)
       {
         ThemedMessageBox.Show(this, ex.Message, "Error");
         UninstallButton.IsEnabled = true;
-        CancelButton.IsEnabled = true;
-        return;
+        SetStatus("", false);
       }
       catch (Exception ex)
       {
-        ThemedMessageBox.Show(this, $"Installation failed. See log for details.", "Error");
+        ThemedMessageBox.Show(this, $"Uninstall failed. See log for details.", "Error");
         OSHelpers.ShowConsoleWindow();
         AnsiConsole.Write("\n");
         AnsiConsole.WriteException(ex);
@@ -52,12 +65,7 @@ namespace RAWebInstaller
         Console.ReadKey(true);
       }
 
-      UninstallButton.Visibility = Visibility.Collapsed;
       CancelButton.IsEnabled = true;
-      CancelButton.Content = "Close";
-      RemoveAppDataCheckBox.Visibility = Visibility.Collapsed;
-      MessageTitle.Text = "Uninstall Complete";
-      MessageText.Text = "The application has been successfully uninstalled.";
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

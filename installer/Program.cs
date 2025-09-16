@@ -40,6 +40,8 @@ internal class Program
         AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
         AnsiConsole.Write(new Rule());
         AnsiConsole.MarkupLine("[red]Failed to launch the uninstall GUI.[/]");
+        AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
+        Console.ReadKey(true);
         return 1;
       }
     }

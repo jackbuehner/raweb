@@ -400,7 +400,7 @@ namespace RAWebInstaller
               // before we try to remove the application and move files (some files
               // may have locks on them otherwise)
               ctx.Status = "Checking for existing application pool...";
-              if (IISHelpers.AppPoolExists(appPoolName))
+              if (IISHelpers.AppPoolExists(appPoolName) && IISHelpers.IsAppPoolRunning(appPoolName))
               {
                 ctx.Status = "Stopping existing application pool...";
                 IISHelpers.StopAppPool(appPoolName);

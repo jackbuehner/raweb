@@ -324,6 +324,38 @@ namespace RAWebInstaller
     }
 
     /// <summary>
+    /// Checks if the specified application pool is running.
+    /// <br /><br />
+    /// If the application pool does not exist, an exception is thrown.
+    /// </summary>
+    /// <param name="appPoolName"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    public static bool IsAppPoolRunning(string appPoolName)
+    {
+      if (!AppPoolExists(appPoolName))
+      {
+        throw new InvalidOperationException(
+            $"Application pool '{appPoolName}' does not exist."
+        );
+      }
+
+      try
+      {
+        var output = CommandRunner.RunPS($@"
+          Import-Module WebAdministration
+          $state = (Get-WebAppPoolState -Name ""{appPoolName}"").Value
+          $state -eq 'Started'
+        ");
+        return output.Trim().Equals("True", StringComparison.OrdinalIgnoreCase);
+      }
+      catch
+      {
+        return false;
+      }
+    }
+
+    /// <summary>
     /// Stops the specified application pool.
     /// <br /><br />
     /// This will unload any worker processes (w3wp.exe) that may lock files,

@@ -22,25 +22,15 @@ internal class Program
     bool isUninstall = args.Length == 2 && args[0].Equals("--uninstall", StringComparison.OrdinalIgnoreCase);
     if (isUninstall)
     {
-      // confirm that the second argument is a valid
-      // path to an existing installation
-      // Format: Web Site Name\Folder Or Foleders Within
-      string programFilesPath = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-      string installPath = System.IO.Path.Combine(programFilesPath, "RAWeb", args[1]);
-      if (!System.IO.Directory.Exists(installPath))
-      {
-        AnsiConsole.MarkupLine("[red]The specified installation path does not exist:[/]");
-        AnsiConsole.MarkupLine($"[red]{installPath}[/]");
-        return 1;
-      }
-
       // hide the console window
       OSHelpers.HideConsoleWindow();
+
 
       try
       {
         var app = new Application();
-        var wnd = new UninstallWindow("Uninstall RAWeb?", installPath, args[1]);
+        string uninstallId = args[1];
+        var wnd = new UninstallWindow("Uninstall RAWeb?", uninstallId);
         app.Run(wnd);
         return 0;
       }

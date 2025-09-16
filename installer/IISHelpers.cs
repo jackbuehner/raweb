@@ -713,6 +713,30 @@ namespace RAWebInstaller
     }
 
     /// <summary>
+    /// Deletes the specified application pool.
+    /// </summary>
+    /// <param name="appPoolName"></param>
+    /// <returns></returns>
+    public static Exception? DeleteAppPool(string appPoolName)
+    {
+      try
+      {
+        CommandRunner.RunPS($@"
+          Import-Module WebAdministration
+          Remove-WebAppPool -Name ""{appPoolName}""
+        ");
+
+        return null;
+      }
+      catch (Exception ex)
+      {
+        AnsiConsole.MarkupLine($"[red]Failed to delete application pool '{appPoolName}':[/]");
+        AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything | ExceptionFormats.ShowLinks);
+        return ex;
+      }
+    }
+
+    /// <summary>
     /// Checks if HTTPS is enabled for the given site (i.e. if there is an HTTPS binding).
     /// </summary>
     /// <param name="siteName"></param>

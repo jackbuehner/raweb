@@ -601,7 +601,7 @@ namespace RAWebInstaller
               try
               {
                 string installLabel = $"RAWeb {(siteName == "Default Web Site" ? "" : $"– {siteName}")}{((sitePath == "/" || sitePath == "/RAWeb") ? "" : $"– {sitePath.Trim('/')}")}";
-                UninstallHelper.RegisterUninstallInformation(installLabel, installDir, siteName, sitePath);
+                UninstallHelper.RegisterUninstallInformation(installLabel, installDir, siteName, sitePath, appPoolName);
                 AnsiConsole.MarkupLine("[green]Registered uninstall information.[/]");
               }
               catch (Exception ex)
@@ -782,28 +782,6 @@ namespace RAWebInstaller
 
     public ConsoleExitCode(int exitCode, Exception innerException) : base($"Exiting with code {exitCode}", innerException)
     {
-    }
-  }
-
-  public class UninstallHelper
-  {
-    public static void RegisterUninstallInformation(string installLabel, string installDir, string siteName, string sitePath)
-    {
-      string uninstallId = $@"{siteName}\{sitePath.Trim('/').Replace('/', '\\')}";
-
-      string uninstallKey =
-          $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\RAWeb_{uninstallId.Replace('\\', '_')}";
-
-      using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(uninstallKey);
-
-      key?.SetValue("DisplayName", installLabel);
-      key?.SetValue("InstallLocation", installDir);
-      key?.SetValue("Publisher", "RAWeb");
-      key?.SetValue("DisplayVersion", VersionInfo.GetVersionString());
-      key?.SetValue("DisplayIcon", Path.Combine(installDir, "install_raweb.exe"));
-      key?.SetValue("ModifyPath", Path.Combine(installDir, "install_raweb.exe"));
-      key?.SetValue("UninstallString",
-          $"\"{Path.Combine(installDir, "install_raweb.exe")}\" --uninstall \"{uninstallId}\"");
     }
   }
 }

@@ -75,8 +75,15 @@ namespace RAWebInstaller
     /// </summary>
     private static bool IsFeatureInstalled(string name)
     {
-      var output = CommandRunner.Run("dism.exe", $"/online /Get-FeatureInfo /FeatureName:{name}");
-      return output.Contains("State : Enabled", StringComparison.OrdinalIgnoreCase);
+      try
+      {
+        var output = CommandRunner.Run("dism.exe", $"/online /Get-FeatureInfo /FeatureName:{name}");
+        return output.Contains("State : Enabled", StringComparison.OrdinalIgnoreCase);
+      }
+      catch
+      {
+        return false;
+      }
     }
 
     /// <summary>

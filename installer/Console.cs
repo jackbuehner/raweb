@@ -492,7 +492,22 @@ namespace RAWebInstaller
               ctx.Status = "Removing existing files...";
               if (Directory.Exists(installDir))
               {
-                Directory.Delete(installDir, true);
+                foreach (string file in Directory.GetFiles(installDir))
+                {
+                  if (Path.GetFileName(file).Equals("install_raweb.exe", StringComparison.OrdinalIgnoreCase))
+                  {
+                    OSHelpers.TakeControl(file);
+                    File.Delete(file);
+                  }
+                  else
+                  {
+                    File.Delete(file);
+                  }
+                }
+                foreach (string dir in Directory.GetDirectories(installDir))
+                {
+                  Directory.Delete(dir, true);
+                }
               }
 
               // copy the RAWeb files from the installer to the installation directory

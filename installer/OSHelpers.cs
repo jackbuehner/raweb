@@ -93,13 +93,15 @@ namespace RAWebInstaller
 
       string takeownArgs;
       if (accountName.Equals("BUILTIN\\Administrators", StringComparison.OrdinalIgnoreCase) ||
-          accountName.Equals("Administrators", StringComparison.OrdinalIgnoreCase))
+        accountName.Equals("Administrators", StringComparison.OrdinalIgnoreCase))
       {
-        takeownArgs = $"/f \"{path}\" /r /d y /a";
+        if (Directory.Exists(path)) takeownArgs = $"/f \"{path}\" /r /d y /a";
+        else takeownArgs = $"/f \"{path}\" /a";
       }
       else
       {
-        takeownArgs = $"/f \"{path}\" /r /d y /user \"{accountName}\"";
+        if (Directory.Exists(path)) takeownArgs = $"/f \"{path}\" /r /d y /user \"{accountName}\"";
+        else takeownArgs = $"/f \"{path}\" /user \"{accountName}\"";
       }
 
       CommandRunner.Run("takeown", takeownArgs);
@@ -117,9 +119,11 @@ namespace RAWebInstaller
 
       TakeOwnership(path, account);
 
-      // grant full control recursively using icacls
+      // grant full control using icacls
       string accountName = account.Value;
-      string icaclsArgs = $"\"{path}\" /grant \"{accountName}\":F /t /c";
+      string icaclsArgs;
+      if (Directory.Exists(path)) icaclsArgs = $"\"{path}\" /grant \"{accountName}\":F /t /c";
+      else icaclsArgs = $"\"{path}\" /grant \"{accountName}\":F /c";
       CommandRunner.Run("icacls", icaclsArgs, allowedExitCodes: [0]);
     }
 

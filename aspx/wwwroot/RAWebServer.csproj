@@ -2,10 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>net462</TargetFramework>
-    <LangVersion>6.0</LangVersion>
+    <LangVersion>8.0</LangVersion>
     <OutputType>Library</OutputType>
     <ImplicitUsings>disable</ImplicitUsings>
-    <Nullable>disable</Nullable>
+    <Nullable>enable</Nullable>
     <UseAppHost>false</UseAppHost>
   </PropertyGroup>
 

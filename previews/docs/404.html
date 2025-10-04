@@ -8,11 +8,12 @@
       (function () {
         const path = window.location.pathname;
 
-        const previewMatch = path.match(/^\/(?:raweb\/)?previews\/([^/]+)/);
+        const previewMatch = path.match(/^(?:\/raweb)?\/previews\/([^/]+)/);
         const isPreview = Boolean(previewMatch);
 
         const hasRawebPrefix = path.startsWith("/raweb");
 
+        // Base path depends on deployment environment
         const base = isPreview
           ? hasRawebPrefix
             ? `/raweb/previews/${previewMatch[1]}`
@@ -23,17 +24,16 @@
 
         const href = encodeURIComponent(window.location.href);
 
-        if (path.endsWith("/login") || path.endsWith("/login/")) {
-          location.replace(`${base}/login.html?originalUrl=${href}`);
-        } else if (path.endsWith("/logoff") || path.endsWith("/logoff/")) {
-          location.replace(`${base}/logoff.html?originalUrl=${href}`);
-        } else if (path.endsWith("/password") || path.endsWith("/password/")) {
-          location.replace(`${base}/password.html?originalUrl=${href}`);
-        } else if (path.endsWith("/docs") || path.replace(base, '').includes("/docs/")) {
-          location.replace(`${base}/docs.html?originalUrl=${href}`);
-        } else {
-          location.replace(`${base}/index.html?originalUrl=${href}`);
-        }
+        const goto = (page) =>
+          location.replace(`${base}/${page}.html?originalUrl=${href}`);
+
+        if (path.endsWith("/login") || path.endsWith("/login/")) goto("login");
+        else if (path.endsWith("/logoff") || path.endsWith("/logoff/"))
+          goto("logoff");
+        else if (path.endsWith("/password") || path.endsWith("/password/"))
+          goto("password");
+        else if (path.endsWith("/docs") || path.includes("/docs/")) goto("docs");
+        else goto("index");
       })();
     </script>
   </head>

@@ -7,21 +7,32 @@
     <script>
       (function () {
         const path = window.location.pathname;
-        const previewMatch = path.match(/^\/raweb\/previews\/([^/]+)/);
+
+        const previewMatch = path.match(/^\/(?:raweb\/)?previews\/([^/]+)/);
         const isPreview = Boolean(previewMatch);
+
+        const hasRawebPrefix = path.startsWith("/raweb");
+
         const base = isPreview
-          ? `/raweb/previews/${previewMatch[1]}`
-          : `/raweb`;
-        if (path.endsWith('/login') || path.endsWith('/login/')) {
-          location.replace(`${base}/login.html?originalUrl=${encodeURIComponent(window.location.href)}`);
-        } else if (path.endsWith('/logoff') || path.endsWith('/logoff/')) {
-          location.replace(`${base}/logoff.html?originalUrl=${encodeURIComponent(window.location.href)}`);
-        } else if (path.endsWith('/password') || path.endsWith('/password/')) {
-          location.replace(`${base}/password.html?originalUrl=${encodeURIComponent(window.location.href)}`);
-        } else if (path.endsWith('/docs') || path.includes('/docs/')) {
-          location.replace(`${base}/docs.html?originalUrl=${encodeURIComponent(window.location.href)}`);
+          ? hasRawebPrefix
+            ? `/raweb/previews/${previewMatch[1]}`
+            : `/previews/${previewMatch[1]}`
+          : hasRawebPrefix
+          ? `/raweb`
+          : ``;
+
+        const href = encodeURIComponent(window.location.href);
+
+        if (path.endsWith("/login") || path.endsWith("/login/")) {
+          location.replace(`${base}/login.html?originalUrl=${href}`);
+        } else if (path.endsWith("/logoff") || path.endsWith("/logoff/")) {
+          location.replace(`${base}/logoff.html?originalUrl=${href}`);
+        } else if (path.endsWith("/password") || path.endsWith("/password/")) {
+          location.replace(`${base}/password.html?originalUrl=${href}`);
+        } else if (path.endsWith("/docs") || path.replace(base, '').includes("/docs/")) {
+          location.replace(`${base}/docs.html?originalUrl=${href}`);
         } else {
-          location.replace(`${base}/index.html?originalUrl=${encodeURIComponent(window.location.href)}`);
+          location.replace(`${base}/index.html?originalUrl=${href}`);
         }
       })();
     </script>

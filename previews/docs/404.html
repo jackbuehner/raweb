@@ -5,19 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Redirecting...</title>
     <script>
-      const path = window.location.pathname;
-
-      if (path === "/login") {
-        location.replace("/login.html");
-      } else if (path === "/logoff") {
-        location.replace("/logoff.html");
-      } else if (path === "/password") {
-        location.replace("/password.html");
-      } else if (path === "/docs" || path.startsWith("/docs/")) {
-        location.replace("/docs.html");
-      } else {
-        location.replace("/index.html");
-      }
+      (function () {
+        const path = window.location.pathname;
+        const previewMatch = path.match(/^\/raweb\/previews\/([^/]+)/);
+        const isPreview = Boolean(previewMatch);
+        const base = isPreview
+          ? `/raweb/previews/${previewMatch[1]}`
+          : `/raweb`;
+        if (path.endsWith('/login') || path.endsWith('/login/')) {
+          location.replace(`${base}/login.html`);
+        } else if (path.endsWith('/logoff') || path.endsWith('/logoff/')) {
+          location.replace(`${base}/logoff.html`);
+        } else if (path.endsWith('/password') || path.endsWith('/password/')) {
+          location.replace(`${base}/password.html`);
+        } else if (path.endsWith('/docs') || path.includes('/docs/')) {
+          location.replace(`${base}/docs.html`);
+        } else {
+          location.replace(`${base}/index.html`);
+        }
+      })();
     </script>
   </head>
   <body></body>

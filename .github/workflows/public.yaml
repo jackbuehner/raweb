@@ -1,0 +1,95 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    paths:
+      - "frontend/**"
+
+jobs:
+  build_and_release:
+    name: Build and release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.15.0"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: cd frontend && pnpm install
+
+      - name: Build the frontend
+        run: cd frontend && pnpm run build --config vite.config.public.ts
+
+      - name: Add custom routing fallback
+        run: |
+          cat > frontend/dist/404.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>Redirecting...</title>
+              <script>
+                const path = window.location.pathname;
+
+                if (path === "/login") {
+                  location.replace("/login.html");
+                } else if (path === "/logoff") {
+                  location.replace("/logoff.html");
+                } else if (path === "/password") {
+                  location.replace("/password.html");
+                } else if (path === "/docs" || path.startsWith("/docs/")) {
+                  location.replace("/docs.html");
+                } else {
+                  location.replace("/index.html");
+                }
+              </script>
+            </head>
+            <body></body>
+          </html>
+          EOF
+
+      - name: Upload pages artifact
+        if: github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+      - name: Deploy to GitHub Pages (main)
+        if: github.ref == 'refs/heads/master'
+        uses: actions/deploy-pages@v4
+
+      - name: Deploy preview
+        if: github.ref != 'refs/heads/master'
+        run: |
+          branch_name="${{ github.ref_name }}"
+          preview_dir="frontend/dist_previews/${branch_name}"
+          mkdir -p "$preview_dir"
+          cp -r frontend/dist/* "$preview_dir/"
+
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git fetch origin gh-pages || git branch gh-pages
+          git checkout gh-pages
+
+          mkdir -p "previews"
+          cp -r "$preview_dir" "previews/${branch_name}"
+
+          git add previews/${branch_name}
+          git commit -m "Preview for ${branch_name}" || echo "No changes to commit"
+          git push origin gh-pages

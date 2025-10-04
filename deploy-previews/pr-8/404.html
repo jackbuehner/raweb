@@ -1,33 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Redirecting...</title>
-  <script>
-    (function () {
-      const path = window.location.pathname;
-      const previewMatch = path.match(/^(?:\/raweb)?\/deploy-previews\/([^/]+)/);
-      const isPreview = Boolean(previewMatch);
-      const hasRawebPrefix = path.startsWith("/raweb");
-      const base = isPreview
-        ? hasRawebPrefix
-          ? `/raweb/deploy-previews/${previewMatch[1]}`
-          : `/deploy-previews/${previewMatch[1]}`
-        : hasRawebPrefix
-        ? `/raweb`
-        : ``;
-      const href = encodeURIComponent(window.location.href);
-      const goto = (page) =>
-        location.replace(`${base}/${page}.html?originalUrl=${href}`);
-      if (path.endsWith("/login") || path.endsWith("/login/")) goto("login");
-      else if (path.endsWith("/logoff") || path.endsWith("/logoff/")) goto("logoff");
-      else if (path.endsWith("/password") || path.endsWith("/password/")) goto("password");
-      else if (path.endsWith("/docs") || path.includes("/docs/")) goto("docs");
-      else goto("index");
-    })();
-  </script>
-</head>
-<body></body>
-<style>html { background-color: light-dark(#fff, #121212); }</style>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting...</title>
+    <script>
+      (function () {
+        const path = window.location.pathname;
+        const previewMatch = path.match(/^(?:\/raweb)?\/deploy-previews\/([^/]+)/);
+        const isPreview = Boolean(previewMatch);
+        const hasRawebPrefix = path.startsWith("/raweb");
+        const base = isPreview
+          ? hasRawebPrefix
+            ? `/raweb/deploy-previews/${previewMatch[1]}`
+            : `/deploy-previews/${previewMatch[1]}`
+          : hasRawebPrefix
+          ? `/raweb`
+          : ``;
+        const href = encodeURIComponent(window.location.href);
+        const goto = (page) =>
+          location.replace(`${base}/${page}.html?originalUrl=${href}`);
+        if (path.endsWith("/login") || path.endsWith("/login/")) goto("login");
+        else if (path.endsWith("/logoff") || path.endsWith("/logoff/")) goto("logoff");
+        else if (path.endsWith("/password") || path.endsWith("/password/")) goto("password");
+        else if (path.endsWith("/docs") || path.includes("/docs/")) goto("docs");
+        else goto("index");
+      })();
+    </script>
+  </head>
+  <body></body>
+  <style>html { background-color: light-dark(#fff, #121212); }</style>
 </html>

@@ -24,19 +24,8 @@
         const href = encodeURIComponent(window.location.href);
 
         const goto = (page) => {
-          setTimeout(() => {
-            location.replace(`${base}/${page}.html?originalUrl=${href}`);
-          }, 5000)
+          location.replace(`${base}/${page}.html?originalUrl=${href}`);
         }
-
-        console.log({
-          path,
-          previewMatch,
-          isPreview,
-          hasRawebPrefix,
-          base,
-          href,
-        })
           
         if (path.endsWith("/login") || path.endsWith("/login/")) goto("login");
         else if (path.endsWith("/logoff") || path.endsWith("/logoff/"))
@@ -48,5 +37,10 @@
       })();
     </script>
   </head>
-  <body>Redirecting...</body>
+  <body></body>
+  <style>
+    html {
+      background-color: light-dark(#fff, #121212);
+    }
+  </style>
 </html>

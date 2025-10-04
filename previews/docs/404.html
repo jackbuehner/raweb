@@ -13,7 +13,6 @@
 
         const hasRawebPrefix = path.startsWith("/raweb");
 
-        // Base path depends on deployment environment
         const base = isPreview
           ? hasRawebPrefix
             ? `/raweb/previews/${previewMatch[1]}`
@@ -24,9 +23,21 @@
 
         const href = encodeURIComponent(window.location.href);
 
-        const goto = (page) =>
-          location.replace(`${base}/${page}.html?originalUrl=${href}`);
+        const goto = (page) => {
+          setTimeout(() => {
+            location.replace(`${base}/${page}.html?originalUrl=${href}`);
+          }, 5000)
+        }
 
+        console.log({
+          path,
+          previewMatch,
+          isPreview,
+          hasRawebPrefix,
+          base,
+          href,
+        })
+          
         if (path.endsWith("/login") || path.endsWith("/login/")) goto("login");
         else if (path.endsWith("/logoff") || path.endsWith("/logoff/"))
           goto("logoff");
@@ -37,5 +48,5 @@
       })();
     </script>
   </head>
-  <body></body>
+  <body>Redirecting...</body>
 </html>

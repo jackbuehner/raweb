@@ -270,6 +270,17 @@
     autoLanguage();
   </script>
 
+  <script>
+    // if there is a search poram ?originalUrl due to GitHub pages 404 handling, replace the current URL with it
+    (function () {
+      const searchParams = new URLSearchParams(window.location.search);
+      const originalUrl = searchParams.get('originalUrl');
+      if (originalUrl) {
+        window.history.replaceState({}, '', originalUrl);
+      }
+    })();
+  </script>
+
   <script type="module" src="./lib/assets/login-D_R9Q5HC.js"></script>
 <script type="module" src="./lib/assets/shared-mF5JBbWa.js"></script>
 

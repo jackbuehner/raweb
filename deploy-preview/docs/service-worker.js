@@ -1,4 +1,4 @@
-// Built timestamp: 2025-10-05T06:37:48.339Z
+// Built timestamp: 2025-10-05T06:40:00.375Z
 const CACHE_VERSION = 1;
 const CURRENT_CACHE = `app-cache-v${CACHE_VERSION}`;
 const included = [

@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "frontend/**"
+      - ".github/workflows/public.yaml"
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -272,7 +273,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy site via GitHub Pages
     environment:
-      name: ${{ github.ref_name == 'master' && 'Production' || 'Preview' }}
+      name: ${{ github.ref_name == 'master' && 'Production' || (github.event_name == 'pull_request' && 'Review' || 'Development') }}
       url: ${{ needs.build-and-preview.outputs.deploy_url }}
 
     steps:

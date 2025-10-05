@@ -9,7 +9,6 @@
         const searchParams = new URLSearchParams(window.location.search);
         if (searchParams.has("originalUrl")) {
           // this means we are in a redirect loop, so we need to just show the 404 message
-          document.querySelector("article").style.display = "block";
           return;
         }
 

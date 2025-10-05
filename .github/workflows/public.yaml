@@ -5,7 +5,7 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/public.yaml"
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
     paths:
       - "frontend/**"

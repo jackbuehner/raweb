@@ -14,11 +14,11 @@ namespace RAWebServer.Api {
     public IHttpActionResult AuthenticateWorkspace() {
       if (ShouldAuthenticateAnonymously(null)) {
         var anonEncryptedToken = AuthCookieHandler.CreateAuthTicket(s_anonUserInfo);
-        return CreateWorkspaceAuthResponse(anonEncryptedToken);
+        return CreateWorkspaceAuthResponse(anonEncryptedToken.Token);
       }
 
       var encryptedToken = AuthCookieHandler.CreateAuthTicket(HttpContext.Current.Request);
-      return CreateWorkspaceAuthResponse(encryptedToken);
+      return CreateWorkspaceAuthResponse(encryptedToken.Token);
     }
 
     private IHttpActionResult CreateWorkspaceAuthResponse(string encryptedToken) {

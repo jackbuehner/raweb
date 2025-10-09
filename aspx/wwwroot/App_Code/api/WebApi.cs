@@ -109,6 +109,55 @@ namespace RAWebServer.Api {
   }
 
   /// <summary>
+  /// An authorization attribute that only allows access to users who are allowed to write changes.
+  /// (<c>UserInformation.MayWrite == true</c>)
+  /// <br/><br/>
+  /// Requires the user to be authenticated before checking for write status.
+  /// If the user is not authenticated, a 401 Unauthorized response is returned.
+  /// If the user is authenticated but lacks write permissions, a 403 Forbidden response is returned.
+  /// <br/><br/>
+  /// Note that write permission in this context refers to whether the user is allowed
+  /// to make changes per the security restrictions of RAWeb Server, not whether a user
+  /// has write prevlages for the file system.
+  /// <br/>
+  /// To obtain a write session, the user must authenticate at the /api/auth/token endpoint
+  /// with the "tokenType" parameter set to "TokenType.WriteSession" ("0").
+  /// <br/><br/>
+  /// Usage:
+  /// <code>
+  /// [RequireWriteSession]
+  /// public IHttpActionResult SomeMethod() { ... }
+  /// </code>
+  /// </summary>
+  public class RequireWriteSessionAttribute : AuthorizeAttribute {
+    protected override bool IsAuthorized(HttpActionContext actionContext) {
+      var authCookieHandler = new AuthCookieHandler();
+      var userInfo = authCookieHandler.GetUserInformationSafe(HttpContext.Current.Request);
+
+      if (userInfo == null) {
+        return false;
+      }
+
+      return userInfo.HasWriteAccess;
+    }
+
+    protected override void HandleUnauthorizedRequest(HttpActionContext actionContext) {
+      var authCookieHandler = new AuthCookieHandler();
+      var userInfo = authCookieHandler.GetUserInformationSafe(HttpContext.Current.Request);
+
+      if (userInfo == null) {
+        HttpContext.Current.Response.StatusCode = 401;
+        HttpContext.Current.Response.End();
+      }
+
+      if (!userInfo.HasWriteAccess) {
+        HttpContext.Current.Response.StatusCode = 403;
+        HttpContext.Current.Response.End();
+      }
+    }
+  }
+
+  /// <summary>
   /// An authorization attribute that conditionally allows anonymous access
   /// based on the "App.Auth.Anonymous" app setting.
   /// <br/><br/>

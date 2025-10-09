@@ -29,14 +29,15 @@ namespace RAWebServer.Utilities {
         /// instead.
         /// </summary>
         /// <param name="request"></param>
+        /// <param name="mayWrite"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static string CreateAuthTicket(HttpRequest request) {
+        public static AuthTicketResult CreateAuthTicket(HttpRequest request, bool mayWrite = false) {
             if (request == null) {
                 throw new ArgumentNullException("request", "HttpRequest cannot be null.");
             }
 
-            return CreateAuthTicket(request.LogonUserIdentity);
+            return CreateAuthTicket(request.LogonUserIdentity, mayWrite);
         }
 
         /// <summary>
@@ -44,11 +45,12 @@ namespace RAWebServer.Utilities {
         /// The user logon token should represent a logged-on user (e.g., from LogonUser).
         /// </summary>
         /// <param name="userLogonToken"></param>
+        /// <param name="mayWrite"></param>
         /// <returns></returns>
-        public static string CreateAuthTicket(IntPtr userLogonToken) {
+        public static AuthTicketResult CreateAuthTicket(IntPtr userLogonToken, bool mayWrite = false) {
             var foundGroupIds = new List<string>();
             using (var logonUserIdentity = new WindowsIdentity(userLogonToken)) {
-                return CreateAuthTicket(logonUserIdentity);
+                return CreateAuthTicket(logonUserIdentity, mayWrite);
             }
         }
 
@@ -59,8 +61,9 @@ namespace RAWebServer.Utilities {
         /// If you have a user logon token (e.g., from LogonUser), use the CreateAuthTicket(IntPtr) overload instead.
         /// </summary>
         /// <param name="logonUserIdentity"></param>
+        /// <param name="mayWrite"></param>
         /// <returns></returns>
-        public static string CreateAuthTicket(WindowsIdentity logonUserIdentity) {
+        public static AuthTicketResult CreateAuthTicket(WindowsIdentity logonUserIdentity, bool mayWrite = false) {
             var userSid = logonUserIdentity.User.Value;
             var username = logonUserIdentity.Name.Split('\\').Last(); // get the username from the LogonUserIdentity, which is in DOMAIN\username format
             var domain = logonUserIdentity.Name.Contains("\\") ? logonUserIdentity.Name.Split('\\')[0] : Environment.MachineName; // get the domain from the username, or use machine name if no domain
@@ -117,20 +120,27 @@ namespace RAWebServer.Utilities {
             }
 
             var userInfo = new UserInformation(userSid, username, domain, fullName, groupInformation.ToArray());
-            return CreateAuthTicket(userInfo);
+            return CreateAuthTicket(userInfo, mayWrite);
         }
 
         /// <summary>
         /// Creates an encrypted forms authentication ticket for the specified user.
         /// </summary>
         /// <param name="userInfo"></param>
+        /// <param name="mayWrite"></param>
         /// <returns></returns>
-        public static string CreateAuthTicket(UserInformation userInfo) {
+        public static AuthTicketResult CreateAuthTicket(UserInformation userInfo, bool mayWrite = false) {
             var version = 1;
             var issueDate = DateTime.Now;
-            var expirationDate = DateTime.Now.AddMinutes(30);
+            var expirationDate = DateTime.Now.AddMinutes(1);
             var isPersistent = false;
             var userData = "";
+
+            var WRITE_SESSION_TIMEOUT_MINUTES = 5;
+            if (mayWrite) {
+                userData = "may-write=1"; // indicate that this is a session where the user is allowed to write changes
+                expirationDate = DateTime.Now.AddMinutes(WRITE_SESSION_TIMEOUT_MINUTES); // limit the session to a short time period
+            }
 
             if (System.Configuration.ConfigurationManager.AppSettings["UserCache.Enabled"] == "true") {
                 var dbHelper = new UserCacheDatabaseHelper();
@@ -139,7 +149,17 @@ namespace RAWebServer.Utilities {
 
             var tkt = new FormsAuthenticationTicket(version, userInfo.Domain + "\\" + userInfo.Username, issueDate, expirationDate, isPersistent, userData);
             var token = FormsAuthentication.Encrypt(tkt);
-            return token;
+            return new AuthTicketResult(token, expirationDate);
+        }
+
+        public class AuthTicketResult {
+            public string Token { get; private set; }
+            public DateTime ExpirationDate { get; private set; }
+
+            public AuthTicketResult(string token, DateTime expirationDate) {
+                Token = token;
+                ExpirationDate = expirationDate;
+            }
         }
 
         public HttpCookie CreateAuthTicketCookie(string encryptedToken) {
@@ -158,25 +178,43 @@ namespace RAWebServer.Utilities {
         }
 
         public FormsAuthenticationTicket GetAuthTicket(HttpRequest request) {
-            // get the cookie value from the request
             if (request == null) {
                 throw new ArgumentNullException("request", "HttpRequest cannot be null.");
             }
-            if (request.Cookies == null) {
-                throw new ArgumentNullException("request.Cookies", "Cookies collection cannot be null.");
+
+            // if there is an Authorization header, always use it instead of the cookie
+            // (even if the Authorization header contains invalid authorization)
+            var shouldUseBearerAuth = false;
+            if (request.Headers != null && request.Headers["Authorization"] != null) {
+                var authHeader = request.Headers["Authorization"];
+                if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
+                    shouldUseBearerAuth = true;
+                }
             }
-            if (request.Cookies[cookieName] == null) {
-                // if the cookie does not exist, return null
+
+            if (!shouldUseBearerAuth && request.Cookies == null) {
+                throw new ArgumentNullException("request", "Cookies collection or Authorization header (Bearer) must be present.");
+            }
+
+            string token;
+            if (shouldUseBearerAuth) {
+                // get the token from the Authorization header
+                var authHeader = request.Headers["Authorization"];
+                token = authHeader.Substring("Bearer ".Length).Trim();
+            }
+            else if (request.Cookies[cookieName] != null) {
+                var cookieValue = request.Cookies[cookieName].Value;
+                token = cookieValue;
+            }
+            else {
+                // if no cookie or bearer token is present, there is no token
                 return null;
             }
 
-            // if the cookie exists, get its value
-            var cookieValue = request.Cookies[cookieName].Value;
-
             // decrypt the value and return it
             try {
-                // decrypt may throw an exception if cookieValue is invalid
-                var authTicket = FormsAuthentication.Decrypt(cookieValue);
+                // decrypt may throw an exception if the cookieValue or authHeader is invalid
+                var authTicket = FormsAuthentication.Decrypt(token);
                 return authTicket;
             }
             catch {
@@ -191,6 +229,11 @@ namespace RAWebServer.Utilities {
 
             var authTicket = GetAuthTicket(request);
             if (authTicket == null) {
+                return null;
+            }
+
+            // end if the auth ticket is expired
+            if (authTicket.Expiration < DateTime.Now) {
                 return null;
             }
 
@@ -341,11 +384,17 @@ namespace RAWebServer.Utilities {
     }
 
     public class UserInformation {
-        public string Username { get; set; }
-        public string Domain { get; set; }
-        public string Sid { get; set; }
+        public string Username { get; private set; }
+        public string Domain { get; private set; }
+        public string Sid { get; private set; }
         public string FullName { get; set; }
         public GroupInformation[] Groups { get; set; }
+        /// <summary>
+        /// Indicates whether the user is allowed to perform actions that
+        /// entail changing configurations, adding/editing/deleting resources,
+        /// or other actions that modify the state of the system.
+        /// </summary>
+        public bool HasWriteAccess { get; private set; }
         public bool IsAnonymousUser {
             get {
                 return this.Sid == "S-1-4-447-1";
@@ -362,7 +411,7 @@ namespace RAWebServer.Utilities {
             }
         }
 
-        public UserInformation(string sid, string username, string domain, string fullName, GroupInformation[] groups) {
+        public UserInformation(string sid, string username, string domain, string fullName, GroupInformation[] groups, bool mayWrite = false) {
             Sid = sid;
             Username = username;
             Domain = domain;
@@ -375,14 +424,8 @@ namespace RAWebServer.Utilities {
             }
 
             Groups = groups;
-        }
 
-        public UserInformation(string sid, string username, string domain) {
-            Sid = sid;
-            Username = username;
-            Domain = domain;
-            FullName = username;
-            Groups = new GroupInformation[0];
+            HasWriteAccess = mayWrite;
         }
 
         /// <summary>

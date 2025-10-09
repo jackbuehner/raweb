@@ -17,7 +17,7 @@ namespace RAWebServer.Api {
     public IHttpActionResult Authenticate([FromBody] ValidateCredentialsBody body) {
       if (ShouldAuthenticateAnonymously(body.Username)) {
         var anonEncryptedToken = AuthCookieHandler.CreateAuthTicket(s_anonUserInfo);
-        return CreateAuthCookieResponse("anonymous", "RAWEB", anonEncryptedToken);
+        return CreateAuthCookieResponse("anonymous", "RAWEB", anonEncryptedToken.Token);
       }
 
       var credentials = new ParsedCredentialsBody(body.Username, body.Password);
@@ -26,14 +26,15 @@ namespace RAWebServer.Api {
         // check if the username and password are valid for the domain
         using (var userToken = SignOn.ValidateCredentials(credentials.Username, credentials.Password, credentials.Domain)) {
           var encryptedToken = AuthCookieHandler.CreateAuthTicket(userToken.DangerousGetHandle());
-          return CreateAuthCookieResponse(credentials.Username, credentials.Domain, encryptedToken);
+          return CreateAuthCookieResponse(credentials.Username, credentials.Domain, encryptedToken.Token);
         }
       }
       catch (ValidateCredentialsException ex) {
         return Content(HttpStatusCode.OK, new {
           success = false,
-          error = ex.Message,
-          domain = credentials.Domain
+          username = credentials.Username,
+          domain = credentials.Domain,
+          error = ex.Message
         });
       }
     }

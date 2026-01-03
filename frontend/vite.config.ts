@@ -637,7 +637,7 @@ export default defineConfig(async ({ mode }) => {
     },
     server: {
       host: true,
-      https: https,
+      // https: https,
       allowedHosts: ['localhost', hostname(), hostname().toLowerCase(), envFQDN, envFQDN?.toLowerCase()].filter(
         (x): x is string => !!x
       ),
@@ -659,6 +659,12 @@ export default defineConfig(async ({ mode }) => {
         [`${resolvedBase}/inject`]: {
           target: process.env.RAWEB_SERVER_ORIGIN,
           changeOrigin: true,
+        },
+        '/guacd-tunnel': {
+          target: process.env.RAWEB_SERVER_ORIGIN,
+          ws: true,
+          changeOrigin: true,
+          secure: false,
         },
       },
     },

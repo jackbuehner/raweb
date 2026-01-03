@@ -2,7 +2,7 @@
   import { Button, PolicyDialog, TextBlock } from '$components';
   import { ManagedResourceListDialog } from '$dialogs';
   import { useCoreDataStore } from '$stores';
-  import { useWebfeedData } from '$utils';
+  import { isUrl, useWebfeedData } from '$utils';
   import { useTranslation } from 'i18next-vue';
   import { onMounted, ref } from 'vue';
 
@@ -370,6 +370,79 @@
         closeDialog();
         return;
       },
+    },
+    {
+      key: 'GuacdWebClient.Address',
+      appliesTo: ['Web client'],
+      transformVisibleState() {
+        if (!data.value) {
+          return 'unset';
+        }
+
+        const enabledValue = data.value['GuacdWebClient.Enabled'];
+        if (enabledValue === undefined || enabledValue === null || enabledValue === '') {
+          return 'unset';
+        }
+        if (enabledValue === 'true') {
+          return 'enabled';
+        }
+        return 'disabled';
+      },
+      onApply: async (closeDialog, state, extraFields) => {
+        // set whether the web client is enabled
+        await setPolicy('GuacdWebClient.Enabled', state);
+
+        // for not configured, reset the value
+        if (state === null) {
+          await setPolicy('GuacdWebClient.Address', null);
+          closeDialog();
+          return;
+        }
+
+        // for disabled, do nothing else
+        if (state === false) {
+          closeDialog();
+          return;
+        }
+
+        // validate the fields
+        const hostname = extraFields?.hostname;
+        const port = extraFields?.port;
+        if (typeof hostname !== 'string' || hostname === '') {
+          alert(t('policies.GuacdWebClient.Address.errors.hostnameEmpty'));
+          closeDialog(false);
+          return;
+        }
+        if (typeof port !== 'string' || port === '') {
+          alert(t('policies.GuacdWebClient.Address.errors.portEmpty'));
+          closeDialog(false);
+          return;
+        }
+        if (hostname.includes('://') || !isUrl(`https://${hostname}`, { requireTopLevelDomain: true })) {
+          alert(t('policies.GuacdWebClient.Address.errors.hostnameInvalid'));
+          closeDialog(false);
+          return;
+        }
+
+        // set the policy value
+        const policyValue = `${hostname}:${port}`;
+        await setPolicy('GuacdWebClient.Address', policyValue);
+        closeDialog();
+      },
+      extraFields: [
+        {
+          key: 'hostname',
+          label: t('policies.GuacdWebClient.Address.fields.hostname'),
+          type: 'string',
+          interpret: (value: string) => value.split(':')[0] || '',
+        },
+        {
+          key: 'port',
+          label: t('policies.GuacdWebClient.Address.fields.port'),
+          type: 'string',
+          interpret: (value: string) => value.split(':')[1] || '',
+        },
+      ],
     },
   ] satisfies Array<{
     key: InstanceType<typeof PolicyDialog>['$props']['name'];

@@ -1,6 +1,7 @@
 import { buildManagedIconPath } from './buildManagedIconPath.ts';
 import { capitalize } from './capitalize.ts';
 import { combineTerminalServersModeEnabled } from './combineTerminalServersMode.ts';
+import { debounce } from './debounce.ts';
 import { flatModeEnabled } from './flatMode.ts';
 import { generateRdpFileContents } from './generateRdpFileContents.ts';
 import { generateRdpUri } from './generateRdpUri.ts';
@@ -9,6 +10,7 @@ import { groupResourceProperties, groupNames as resourceGroupNames } from './gro
 import { hashString } from './hashString.ts';
 import { iconBackgroundsEnabled } from './iconBackgrounds.ts';
 import { inferUtfEncoding } from './inferUtfEncoding.ts';
+import { isUrl } from './isUrl.ts';
 import { normalizeRdpFileString } from './normalizeRdpFileString.ts';
 import { notEmpty } from './notEmpty.ts';
 import { parseRdpFileText } from './parseRdpFileText.ts';
@@ -38,6 +40,7 @@ export {
   buildManagedIconPath,
   capitalize,
   combineTerminalServersModeEnabled,
+  debounce,
   favoritesEnabled,
   flatModeEnabled,
   generateRdpFileContents,
@@ -47,6 +50,7 @@ export {
   hashString,
   iconBackgroundsEnabled,
   inferUtfEncoding,
+  isUrl,
   normalizeRdpFileString,
   notEmpty,
   parseRdpFileText,

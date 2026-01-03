@@ -31,7 +31,8 @@
     return [
       { id: 'rdpFile', label: t('resource.methodPicker.rdpFile') },
       { id: 'rdpProtocolUri', label: t('resource.methodPicker.rdpProtocolUri') },
-    ] as { id: 'rdpFile' | 'rdpProtocolUri'; label: string }[];
+      { id: 'webGuacd', label: t('resource.methodPicker.webGuacd') },
+    ] as { id: 'rdpFile' | 'rdpProtocolUri' | 'webGuacd'; label: string }[];
   });
 
   const methodPickerDialog = useTemplateRef<typeof ContentDialog>('methodPickerDialog');

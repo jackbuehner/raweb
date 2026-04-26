@@ -881,6 +881,7 @@ public class GuacdTunnel : HttpTaskAsyncHandler {
                                 // RemoteApp
                                 "remote-app" => GetRdpFileProperty("remoteapplicationprogram:s:"),
                                 "remote-app-args" => GetRdpFileProperty("remoteapplicationcmdline:s:"),
+                                "server-layout" => "failsafe",
                                 _ => ""
                             };
                         });

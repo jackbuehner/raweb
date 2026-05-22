@@ -11,7 +11,7 @@
     <link rel="manifest" href="/deploy-preview/server-net10-nativeaot/manifest.webmanifest"/>
     <meta name="darkreader-lock"/>
     <link rel="stylesheet" href="/deploy-preview/server-net10-nativeaot/lib/assets/docs-DCtetqks.css"/>
-<link rel="stylesheet" href="/deploy-preview/server-net10-nativeaot/lib/assets/shared-CaLuL1jC.css"/>
+<link rel="stylesheet" href="/deploy-preview/server-net10-nativeaot/lib/assets/shared-Cy30NAEH.css"/>
   </head>
 
   <body>
@@ -114,8 +114,9 @@
         }
 
         .root-splash-note {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
-            'Open Sans', 'Helvetica Neue', sans-serif;
+          font-family:
+            -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans',
+            'Helvetica Neue', sans-serif;
           color: var(--wui-text-tertiary);
           display: flex;
           flex-direction: column;
@@ -180,14 +181,35 @@
         }
       </style>
       <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 64 64" class="root-splash-app-logo">
+        <defs>
+          <linearGradient id="blue" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color: #64b5f6; stop-opacity: 1"></stop>
+            <stop offset="100%" style="stop-color: #1976d2; stop-opacity: 1"></stop>
+          </linearGradient>
+          <linearGradient id="yellow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color: #ffd54f; stop-opacity: 1"></stop>
+            <stop offset="100%" style="stop-color: #f57c00; stop-opacity: 1"></stop>
+          </linearGradient>
+          <linearGradient id="red" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color: #ef5350; stop-opacity: 1"></stop>
+            <stop offset="100%" style="stop-color: #c62828; stop-opacity: 1"></stop>
+          </linearGradient>
+          <linearGradient id="green" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color: #81c784; stop-opacity: 1"></stop>
+            <stop offset="100%" style="stop-color: #2e7d32; stop-opacity: 1"></stop>
+          </linearGradient>
+        </defs>
+
         <!-- Transparent background -->
         <rect width="64" height="64" fill="none"></rect>
 
         <!-- Grid of apps -->
-        <rect x="8" y="8" width="20" height="20" rx="4" fill="#42A5F5"></rect>
-        <rect x="36" y="8" width="20" height="20" rx="4" fill="#FFCA28"></rect>
-        <rect x="8" y="36" width="20" height="20" rx="4" fill="#EF5350"></rect>
-        <circle cx="46" cy="46" r="10" fill="#66BB6A"></circle>
+        <g filter="drop-shadow(0 1px 2px rgba(0,0,0,0.075))">
+          <rect x="8" y="8" width="20" height="20" rx="4" fill="url(#blue)"></rect>
+          <rect x="36" y="8" width="20" height="20" rx="4" fill="url(#yellow)"></rect>
+          <rect x="8" y="36" width="20" height="20" rx="4" fill="url(#red)"></rect>
+          <circle cx="46" cy="46" r="10" fill="url(#green)"></circle>
+        </g>
       </svg>
       <span class="root-splash-note" data-i18n="powered-by" lang="en-US">Powered by RAWeb</span>
       <span class="root-splash-note" style="bottom: 150px">
@@ -250,8 +272,8 @@
       })();
     </script>
 
-    <script type="module" src="/deploy-preview/server-net10-nativeaot/lib/assets/docs-BHOWg-45.js"></script>
-<script type="module" src="/deploy-preview/server-net10-nativeaot/lib/assets/shared-BzTnnkLM.js"></script> %raweb.overrides%
+    <script type="module" src="/deploy-preview/server-net10-nativeaot/lib/assets/docs-C0Gwc6J5.js"></script>
+<script type="module" src="/deploy-preview/server-net10-nativeaot/lib/assets/shared-BDdZhvPS.js"></script> %raweb.overrides%
 
     <script type="module" src="https://get.microsoft.com/badge/ms-store-badge.bundled.js"></script>
   </body>

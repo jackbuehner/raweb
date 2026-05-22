@@ -14,6 +14,9 @@ export function removeSplashScreen() {
         // splashWrapperElem.remove();
         splashWrapperElem.style.display = 'none';
         resolve();
+        const event = new CustomEvent('RAWebReady');
+        window.dispatchEvent(event);
+        console.log('RAWebReady event dispatched');
       }, 300); // wait for the transition to finish before removing the element
     }
 

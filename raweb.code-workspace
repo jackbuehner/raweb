@@ -13,6 +13,10 @@
       "name": "Workers » Install"
     },
     {
+      "path": "dotnet/RAWeb.WebViewClient",
+      "name": "WebView Client"
+    },
+    {
       "path": "dotnet/RAWeb.Server.Management",
       "name": "Backend » Management"
     },

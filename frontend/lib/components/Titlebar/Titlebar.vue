@@ -326,6 +326,60 @@
           </MenuFlyoutItem>
         </template>
       </MenuFlyout>
+      <div class="titlebar-buttons">
+        <!-- if clicking the backdrop to close the dialog is disabled, show an X in the corner instead -->
+        <IconButton class="titlebar-button titlebar-buttons-close-button" tag="div" :tabindex="null">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="m4.397 4.554.073-.084a.75.75 0 0 1 .976-.073l.084.073L12 10.939l6.47-6.47a.75.75 0 1 1 1.06 1.061L13.061 12l6.47 6.47a.75.75 0 0 1 .072.976l-.073.084a.75.75 0 0 1-.976.073l-.084-.073L12 13.061l-6.47 6.47a.75.75 0 0 1-1.06-1.061L10.939 12l-6.47-6.47a.75.75 0 0 1-.072-.976l.073-.084-.073.084Z"
+              fill="currentColor"
+            />
+          </svg>
+        </IconButton>
+
+        <IconButton class="titlebar-button" tag="div" :tabindex="null">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="10" height="10" fill="none">
+            <rect
+              x="1.5"
+              y="1.5"
+              width="7"
+              height="7"
+              rx="0"
+              stroke="currentColor"
+              stroke-width="0.5"
+              fill="none"
+            />
+          </svg>
+        </IconButton>
+
+        <IconButton class="titlebar-button" tag="div" :tabindex="null">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="10" height="10" fill="none">
+            <path
+              d="M4.5 1.5H7A1.5 1.5 0 0 1 8.5 3V5.5"
+              stroke="currentColor"
+              stroke-width="0.5"
+              fill="none"
+              stroke-linecap="square"
+            />
+            <rect
+              x="1.5"
+              y="3.5"
+              width="5"
+              height="5"
+              rx="1.5"
+              stroke="currentColor"
+              stroke-width="0.5"
+              fill="none"
+            />
+          </svg>
+        </IconButton>
+
+        <IconButton class="titlebar-button" tag="div" :tabindex="null">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" fill="none">
+            <path d="M1 5H9" stroke="currentColor" stroke-width="0.5" shape-rendering="crispEdges" />
+          </svg>
+        </IconButton>
+      </div>
     </div>
   </div>
 </template>
@@ -409,6 +463,51 @@
 
   .app-header .title {
     padding: 0 8px;
+  }
+
+  .titlebar-buttons {
+    position: relative;
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 0;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    z-index: 101;
+    -webkit-app-region: no-drag;
+    -webkit-user-drag: none;
+    user-select: none;
+    font-family: 'Segoe MDL2 Assets';
+    font-size: 16px;
+  }
+  .titlebar-buttons :deep(.titlebar-button) {
+    top: 0;
+    right: 0;
+    z-index: 100;
+    height: 32px;
+    width: 46px;
+    color: var(--wui-text-primary);
+    border-radius: 0;
+    transition: none;
+  }
+  .titlebar-buttons :deep(.titlebar-button:not(.titlebar-buttons-close-button) svg) {
+    inline-size: 14px;
+  }
+  .titlebar-buttons :deep(.titlebar-button:hover) {
+    background-color: var(--wui-accent-default);
+    color: var(--wui-text-on-accent-primary);
+  }
+  .titlebar-buttons :deep(.titlebar-button:active) {
+    background-color: var(--wui-accent-tertiary);
+    color: var(--wui-text-on-accent-primary);
+  }
+  .titlebar-buttons :deep(.titlebar-buttons-close-button:hover) {
+    background-color: #e81123;
+    color: white;
+  }
+  .titlebar-buttons :deep(.titlebar-buttons-close-button:active) {
+    background-color: #f1707a;
+    color: black;
   }
 </style>
 

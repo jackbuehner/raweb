@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 /// A helper class that grants the current process the necessary privileges
 /// for loading and unloading registry hives.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public static class BackupAndRestorePrivilegesHelper {
     private const string SE_BACKUP_NAME = "SeBackupPrivilege";
     private const string SE_RESTORE_NAME = "SeRestorePrivilege";

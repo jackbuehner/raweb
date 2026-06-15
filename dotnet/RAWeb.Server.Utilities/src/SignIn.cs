@@ -24,6 +24,11 @@ public static class SignIn {
     }
     catch (Exception) { }
 
+    if (!OperatingSystem.IsWindows()) {
+      // on non-windows platforms, we cannot look for the domain name in the registry
+      return Environment.MachineName;
+    }
+
     // if the domain cannot be found, attempt to get the domain from the registry
     try {
       var regKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey("SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters");

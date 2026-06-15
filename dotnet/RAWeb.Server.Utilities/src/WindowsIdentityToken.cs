@@ -9,6 +9,7 @@ namespace RAWeb.Server.Utilities;
 /// stored in a Windows access token. These checks use <c>GetTokenInformation</c>
 /// instead of NetAPI/SAM calls, so they work in sandboxed (AppContainer) processes.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public static class WindowsIdentityToken {
   private enum TOKEN_INFORMATION_CLASS {
     TokenElevationType = 18,
@@ -83,6 +84,7 @@ public static class WindowsIdentityToken {
 /// <summary>
 /// Extension members for <see cref="WindowsIdentity"/> based on token information.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public static class WindowsIdentityTokenExtensions {
   extension(WindowsIdentity identity) {
     /// <summary>

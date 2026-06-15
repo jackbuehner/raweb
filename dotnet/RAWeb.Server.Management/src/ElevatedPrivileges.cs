@@ -3,6 +3,7 @@ using System.Security.Principal;
 
 namespace RAWeb.Server.Management;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class ElevatedPrivileges {
   public static bool Check() {
     var identity = WindowsIdentity.GetCurrent();

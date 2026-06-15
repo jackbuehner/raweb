@@ -135,6 +135,10 @@ public static class ImageUtilities {
 
     // attempt to serve the icon from the specified path by extracting the embedded icon
     if (IsExeDllIco(path)) {
+      if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1, 0)) {
+        throw new UnsupportedImageFormatException();
+      }
+
       if (!int.TryParse(id ?? "0", out var iconIndex)) {
         throw new InvalidIndexException();
       }

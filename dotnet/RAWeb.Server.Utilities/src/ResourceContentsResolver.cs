@@ -128,6 +128,10 @@ public sealed class ResourceContentsResolver {
 
     // if it is a registry desktop, construct the RDP file from the registry
     if (from == ResourceOrigin.RegistryDesktop) {
+      if (!OperatingSystem.IsWindows()) {
+        return new FailedResourceResult(HttpStatusCode.BadRequest, "Registry desktops are only supported on Windows.");
+      }
+
       // ensure the path is a valid registry key name
       if (path.Contains('\\') || path.Contains('/')) {
         return new FailedResourceResult(HttpStatusCode.BadRequest, "When 'from' is 'registryDesktop', 'path' must be the name of the registry key, not a file path.");
@@ -157,6 +161,10 @@ public sealed class ResourceContentsResolver {
 
       // construct an RDP file from the values in the registry and return it
       return new ResolvedResourceResult(HttpStatusCode.OK, RegistryReader.ConstructRdpFileFromRegistry(desktopKeyName, isDesktop: true, httpContext: httpContext), desktopKeyName + ".rdp");
+    }
+
+    if (!OperatingSystem.IsWindows()) {
+      return new FailedResourceResult(HttpStatusCode.BadRequest, "Registry resources are only supported on Windows.");
     }
 
     // ensure the path is a valid registry key name

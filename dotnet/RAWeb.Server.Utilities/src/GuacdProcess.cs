@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 namespace RAWeb.Server.Utilities;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public static class Guacd {
     private static string imagePath => Path.Combine(Constants.AppRoot, $"guacd.wsl");
     private static string imageDate => File.GetLastWriteTimeUtc(imagePath).ToString("o");

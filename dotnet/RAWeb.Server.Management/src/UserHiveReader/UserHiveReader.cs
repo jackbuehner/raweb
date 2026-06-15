@@ -8,6 +8,7 @@ using Microsoft.Win32;
 
 namespace RAWeb.Server.Management;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public sealed class UserHiveReader : IDisposable {
   private string? TemporaryDatFilePath { get; init; }
   private string HiveMountName { get; init; }

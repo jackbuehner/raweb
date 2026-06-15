@@ -16,6 +16,7 @@ using static RAWeb.Server.Management.RemoteAppProperties;
 
 namespace RAWeb.Server.Management;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class SystemRemoteApps(string? collectionName = null) {
   string applicationsRegistryPath => @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Terminal Server\TSAppAllowList\Applications";
   string collectionApplicationsRegistryPath => !string.IsNullOrEmpty(collectionName)

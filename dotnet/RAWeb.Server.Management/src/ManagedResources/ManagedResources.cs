@@ -151,6 +151,7 @@ public abstract class ManagedResource(ManagedResourceSource source, string ident
   /// Setting this property will update the non-serializable
   /// <see cref="SecurityDescriptor"/> property accordingly.
   /// </summary>
+  /// 
   public SecurityDescriptionDTO? SecurityDescription {
     get {
       if (SecurityDescriptor is null) {
@@ -269,6 +270,8 @@ public class ManagedResources : Collection<ManagedResource> {
   /// <summary>
   /// Populates the managed resources collection from the specified
   /// registry collection name and resource files directory.
+  /// 
+  /// On non-Windows platforms, the registry-related logic is skipped.
   /// </summary>
   /// <param name="collectionName"></param>
   /// <param name="resourceFilesDirectory"></param>
@@ -282,7 +285,7 @@ public class ManagedResources : Collection<ManagedResource> {
       Add(app);
     }
 
-    if (skipRegistry != true) {
+    if (skipRegistry != true && OperatingSystem.IsWindows()) {
       // load all registry RemoteApps for the specified collection
       var remoteAppsUtil = new SystemRemoteApps(collectionName);
       var systemRemoteApps = remoteAppsUtil.GetAllRegisteredApps(restorePackagedAppIconPaths);
@@ -395,6 +398,7 @@ public class SecurityDescriptionDTO(List<string>? readAccessAllowedSids = null, 
   /// </summary>
   public List<string> ReadAccessDeniedSids { get; set; } = readAccessDeniedSids ?? [];
 
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public RawSecurityDescriptor? ToRawSecurityDescriptor() {
     return SecurityTransformers.SidRightsToRawSecurityDescriptor(
       allowedSids: ReadAccessAllowedSids.ConvertAll(sid => new Tuple<string, FileSystemRights?>(sid, FileSystemRights.ReadData)),
@@ -505,9 +509,15 @@ public class ManagedResourceJsonConverter : JsonConverter<ManagedResource> {
       return ManagedFileResource.FromJSON(jsonObject, RootedManagedResourcesPath, options);
     }
     if (source == ManagedResourceSource.TSAppAllowList || source == ManagedResourceSource.CentralPublishedResourcesApp) {
+      if (!OperatingSystem.IsWindows()) {
+        throw new PlatformNotSupportedException("Registry-based managed resources are only supported on Windows.");
+      }
       return SystemRemoteApps.SystemRemoteApp.FromJSON(jsonObject, options);
     }
     if (source == ManagedResourceSource.CentralPublishedResourcesDesktop) {
+      if (!OperatingSystem.IsWindows()) {
+        throw new PlatformNotSupportedException("Registry-based managed resources are only supported on Windows.");
+      }
       return SystemDesktop.FromJSON(jsonObject, options);
     }
 

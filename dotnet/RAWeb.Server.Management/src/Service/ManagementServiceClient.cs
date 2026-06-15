@@ -19,6 +19,7 @@ public interface IManagementServiceDirectClient : IManagedResourceService, IMana
 /// Returns an <see cref="IManagementServiceDirectClient"/> backed by the named-pipe
 /// transport, or directly if the current process is running with elevated privileges.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public static class ManagementServiceClient {
   public static IManagementServiceDirectClient Proxy {
     get {
@@ -38,6 +39,7 @@ public static class ManagementServiceClient {
 /// avoiding an unnecessary round-trip through the named-pipe service.
 /// Also used by the named-pipe server itself to dispatch incoming calls.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class ManagementServiceDirectClient : IManagementServiceDirectClient {
   public bool AreConnectionsAllowed() => SystemTerminalServerSettings.AreConnectionsAllowed;
 
@@ -103,6 +105,7 @@ public class ManagementServiceDirectClient : IManagementServiceDirectClient {
 /// "raweb-management-{appPoolName}" where appPoolName is read from
 /// the APP_POOL_ID environment variable (default: "raweb").
 /// </remarks>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal class ManagementServicePipeClient : IManagementServiceDirectClient {
   private static string AppPoolName => Environment.GetEnvironmentVariable("APP_POOL_ID") ?? "raweb-kestral";
   private static string PipeAppPoolName => AppPoolName == "IISExpressAppPool" ? "raweb-iisexpress" : AppPoolName;

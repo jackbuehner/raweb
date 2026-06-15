@@ -68,19 +68,24 @@ public class FileAccessInfo {
 
             // confirm that the user does not have read permissions denied
             // (but allow non-explicit allow permissions because the folder name counts as an implicit allow)
-            try {
-                var access = GetAccessInfo(path, userInfo);
-                if (access.Denied) {
-                    httpStatus = 403;
+            if (OperatingSystem.IsWindows()) {
+
+                try {
+                    var access = GetAccessInfo(path, userInfo);
+                    if (access.Denied) {
+                        httpStatus = 403;
+                        return false;
+                    }
+                    return true;
+                }
+                catch (FileNotFoundException) {
+                    // if the path is invalid, deny access
+                    httpStatus = 404;
                     return false;
                 }
-                return true;
             }
-            catch (FileNotFoundException) {
-                // if the path is invalid, deny access
-                httpStatus = 404;
-                return false;
-            }
+            // TODO: implement support for checking read access denial on non-Windows platforms
+
         }
 
         // check whether the authenticated user is a member of the group in the path
@@ -94,19 +99,22 @@ public class FileAccessInfo {
 
             // confirm that the user does not have read permissions denied
             // (but allow non-explicit allow permissions because the folder name counts as an implicit allow)
-            try {
-                var access = GetAccessInfo(path, userInfo);
-                if (access.Denied) {
-                    httpStatus = 403;
+            if (OperatingSystem.IsWindows()) {
+                try {
+                    var access = GetAccessInfo(path, userInfo);
+                    if (access.Denied) {
+                        httpStatus = 403;
+                        return false;
+                    }
+                    return true;
+                }
+                catch (FileNotFoundException) {
+                    // if the path is invalid, deny access
+                    httpStatus = 404;
                     return false;
                 }
-                return true;
             }
-            catch (FileNotFoundException) {
-                // if the path is invalid, deny access
-                httpStatus = 404;
-                return false;
-            }
+            // TODO: implement support for checking read access denial on non-Windows platforms
         }
 
         // check the security descriptor for the managed resource
@@ -148,6 +156,11 @@ public class FileAccessInfo {
                 return true;
             }
 
+            if (!OperatingSystem.IsWindows()) {
+                httpStatus = 400;
+                return false; // security descriptor-based file access control (e.g. for the resources folder) is only supported on Windows
+            }
+
             try {
                 var access = GetAccessInfo(path, userInfo);
 
@@ -176,6 +189,7 @@ public class FileAccessInfo {
         return CanAccessPath(path, userInfo, out _);
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static List<FileSystemAccessRule> GetAccessRules(string path, UserInformation userInfo) {
         // get the security info for the path
         FileSystemSecurity? security = null;
@@ -196,6 +210,7 @@ public class FileAccessInfo {
         return accessRules;
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static AccessInfo GetAccessInfo(List<FileSystemAccessRule> accessRules, UserInformation userInfo) {
         // get the security identifiers for the user and their groups
         var userSid = new SecurityIdentifier(userInfo.Sid);
@@ -216,6 +231,7 @@ public class FileAccessInfo {
         return new AccessInfo(readAllowed, readDenied);
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static AccessInfo GetAccessInfo(string path, UserInformation userInfo) {
         // get the access rules from the security descriptor's discretionary access control list (DACL)
         var accessRules = GetAccessRules(path, userInfo);

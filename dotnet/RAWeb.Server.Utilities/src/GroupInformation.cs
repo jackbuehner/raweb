@@ -40,11 +40,12 @@ public class GroupInformation {
   }
 
   public GroupInformation(string sid) {
-    Name = ResolveLocalizedGroupName(sid);
+    Name = OperatingSystem.IsWindows() ? ResolveLocalizedGroupName(sid) : sid;
     Sid = sid;
     DN = null;
   }
 
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static string ResolveLocalizedGroupName(SecurityIdentifier sid) {
     try {
       var account = (NTAccount)sid.Translate(typeof(NTAccount));
@@ -56,6 +57,7 @@ public class GroupInformation {
     }
   }
 
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static string ResolveLocalizedGroupName(string sidString) {
     var sid = new SecurityIdentifier(sidString);
     return ResolveLocalizedGroupName(sid);

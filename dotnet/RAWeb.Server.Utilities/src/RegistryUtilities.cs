@@ -12,6 +12,7 @@ using RAWeb.Server.Management;
 namespace RAWeb.Server.Utilities;
 
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class RegistryReader {
     public static Microsoft.Win32.RegistryKey OpenRemoteAppRegistryKey(string keyName) {
         var supportsCentralizedPublishing = PoliciesManager.RawPolicies["RegistryApps.Enabled"] != "true";

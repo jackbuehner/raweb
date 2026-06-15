@@ -135,6 +135,10 @@ public class Resource {
   /// </summary>
   /// <exception cref="ArgumentException"></exception>
   public Resource(string title, string fullAddress, string? appProgram, string alias, string? appFileExtCSV, DateTime lastUpdated, string[] virtualFolders, ResourceOrigin origin, string source) {
+    if (!OperatingSystem.IsWindows() && (origin == ResourceOrigin.Registry || origin == ResourceOrigin.RegistryDesktop)) {
+      throw new ArgumentException("Registry resources are only supported on Windows.");
+    }
+
     VirtualFolders = virtualFolders ?? ["/"];
 
     // full address is required because it is the connection address
@@ -162,6 +166,9 @@ public class Resource {
       }
     }
     if (origin == ResourceOrigin.Registry) {
+      if (!OperatingSystem.IsWindows()) {
+        throw new ArgumentException("Registry resources are only supported on Windows.");
+      }
       using (var regKey = Registry.LocalMachine.OpenSubKey($@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Terminal Server\TSAppAllowList\Applications\{source}")) {
         if (regKey == null) {
           throw new ArgumentException(@"Source must be a valid application name in HKEY_LOCAL_MACHINE\SOFTWARE\Windows NT\CurrentVersion\Terminal Server\TSAppAllowList\Applications.");

@@ -9,6 +9,10 @@ public class SystemTerminalServerSettings {
   /// <exception cref="Exception"></exception>
   public static bool AreConnectionsAllowed {
     get {
+      if (!OperatingSystem.IsWindows()) {
+        return false;
+      }
+
       using var regKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Terminal Server");
       if (regKey == null) {
         throw new Exception("Could not read registry key for Terminal Server settings.");

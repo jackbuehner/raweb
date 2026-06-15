@@ -10,6 +10,7 @@ namespace RAWeb.Server.Management;
 /// <summary>
 /// Represents information about a user profile on the system.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class SystemUserProfile(string username, string profilePath, string displayName, SecurityIdentifier sid) {
   public string UserName { get; set; } = username;
   public string ProfilePath { get; set; } = profilePath;
@@ -33,6 +34,7 @@ public class SystemUserProfile(string username, string profilePath, string displ
 /// <summary>
 /// A collection of user profiles on the system.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class SystemUserProfiles : Collection<SystemUserProfile> {
   /// <summary>
   /// Initializes a new instance of the <see cref="SystemUserProfiles"/> class

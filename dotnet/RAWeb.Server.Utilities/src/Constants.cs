@@ -49,12 +49,14 @@ public sealed class Constants {
   /// Gets the Terminal Server full address (IP:port) for RDP connections.
   /// </summary>
   [Obsolete("Use the 'Constants.GetTerminalServerFullAddress' method instead")]
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static string TerminalServerFullAddress {
     get {
       return GetTerminalServerFullAddress();
     }
   }
 
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static string GetTerminalServerFullAddress(Microsoft.AspNetCore.Http.HttpContext? httpContext = null) {
     var fulladdress = PoliciesManager.RawPolicies["RegistryApps.FullAddressOverride"];
     if (fulladdress is not null && !string.IsNullOrEmpty(fulladdress)) {

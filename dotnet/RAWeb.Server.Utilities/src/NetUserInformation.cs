@@ -6,6 +6,7 @@ using System.Text;
 
 namespace RAWeb.Server.Utilities;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public sealed class NetUserInformation {
   [DllImport("Netapi32.dll", CharSet = CharSet.Unicode)]
   private static extern int NetUserGetInfo(
@@ -351,6 +352,7 @@ public sealed class NetUserInformation {
 /// Extension members for <see cref="WindowsIdentity"/> based on local machine
 /// account/group information retrieved via netapi32.dll.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public static class NetUserInformationExtensions {
   extension(WindowsIdentity identity) {
     /// <summary>

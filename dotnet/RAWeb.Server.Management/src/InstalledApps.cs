@@ -75,7 +75,7 @@ public class InstalledApp(string path, string displayName, string displayFolder,
     }
 
     // seearch for file type associations
-    var fileTypeAssociations = FindFileTypeAssociations(targetPath);
+    var fileTypeAssociations = OperatingSystem.IsWindows() ? FindFileTypeAssociations(targetPath) : [];
 
     var installedApp = new InstalledApp(
       path: targetPath,
@@ -147,6 +147,7 @@ public class InstalledApp(string path, string displayName, string displayFolder,
   /// Do not use this method with packaged apps (Appx/MSIX); those associations
   /// should instead be extracted from the package manifest.
   /// </summary>
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   private static FileTypeAssociationCollection FindFileTypeAssociations(string targetPath) {
     // scan HKEY_LOCAL_MACHINE\SOFTWARE\Classes for shell open commands that start with the target path
     // Note: this will not find per-user file associations in HKEY_CURRENT_USER, and we
@@ -387,6 +388,7 @@ public class InstalledApps : System.Collections.ObjectModel.Collection<Installed
   /// </summary>
   /// <param name="userSid"></param>
   /// <returns></returns>
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static InstalledApps FromStartMenu(SecurityIdentifier userSid, SystemUserProfile? userProfile = null) {
     ElevatedPrivileges.Require();
 
@@ -415,6 +417,7 @@ public class InstalledApps : System.Collections.ObjectModel.Collection<Installed
   /// in AppxAllUserStore and the packages discovered in the WindowsApps and SystemApps folders.
   /// </summary>
   /// <returns></returns>
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   private static IEnumerable<(XDocument, ManifestFolder, PublisherHash)> GetAppPackageManifests() {
     ElevatedPrivileges.Require();
     var seenPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -605,6 +608,7 @@ public class InstalledApps : System.Collections.ObjectModel.Collection<Installed
   /// </summary>
   /// <param name="registryAppxAllUserStoreSubKeys"></param>
   /// <returns></returns>
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static InstalledApps FromAppPackages() {
     var installedApps = new InstalledApps();
 

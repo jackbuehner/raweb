@@ -13,6 +13,7 @@ using Microsoft.Win32;
 
 namespace RAWeb.Server.Management;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public sealed class SystemDesktop : ManagedResource {
   public string? CollectionName { get; init; }
   [JsonIgnore]

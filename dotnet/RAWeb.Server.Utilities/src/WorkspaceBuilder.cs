@@ -98,14 +98,17 @@ public class WorkspaceBuilder {
 
             var supportsCentralizedPublishing = PoliciesManager.RawPolicies["RegistryApps.Enabled"] != "true";
             var centralizedPublishingCollectionName = AppId.ToCollectionName();
-            var systemRemoteApps = new SystemRemoteApps(supportsCentralizedPublishing ? centralizedPublishingCollectionName : null);
-            var managedSystemRemoreApps = systemRemoteApps.GetAllRegisteredApps(restorePackagedAppIconPaths: false);
-            var managedSraJson = JsonSerializer.Serialize(managedSystemRemoreApps, WorkspaceDebugJsonContext.Default.SystemRemoteAppCollection);
-            _resourcesBuffer.Append($"<!-- Managed System Remote Apps: {managedSraJson.Replace("--", "==")} -->\r\n");
+            if (OperatingSystem.IsWindows()) {
 
-            var desktopResource = SystemDesktop.FromRegistry(centralizedPublishingCollectionName, centralizedPublishingCollectionName);
-            var systemDesktopJson = JsonSerializer.Serialize(desktopResource, WorkspaceDebugJsonContext.Default.SystemDesktop);
-            _resourcesBuffer.Append($"<!-- System Desktop Resource: {systemDesktopJson.Replace("--", "==")} -->\r\n");
+                var systemRemoteApps = new SystemRemoteApps(supportsCentralizedPublishing ? centralizedPublishingCollectionName : null);
+                var managedSystemRemoreApps = systemRemoteApps.GetAllRegisteredApps(restorePackagedAppIconPaths: false);
+                var managedSraJson = JsonSerializer.Serialize(managedSystemRemoreApps, WorkspaceDebugJsonContext.Default.SystemRemoteAppCollection);
+                _resourcesBuffer.Append($"<!-- Managed System Remote Apps: {managedSraJson.Replace("--", "==")} -->\r\n");
+
+                var desktopResource = SystemDesktop.FromRegistry(centralizedPublishingCollectionName, centralizedPublishingCollectionName);
+                var systemDesktopJson = JsonSerializer.Serialize(desktopResource, WorkspaceDebugJsonContext.Default.SystemDesktop);
+                _resourcesBuffer.Append($"<!-- System Desktop Resource: {systemDesktopJson.Replace("--", "==")} -->\r\n");
+            }
 
             var managedFileResources = ManagedFileResources.FromDirectory(Path.Combine(Constants.AppDataFolderPath, managedResourcesFolder));
             var managedFileResourcesJson = JsonSerializer.Serialize(managedFileResources, WorkspaceDebugJsonContext.Default.ManagedFileResources);
@@ -120,7 +123,7 @@ public class WorkspaceBuilder {
         }
 
         // process resources
-        if (supportsTerminalServerConnections) {
+        if (supportsTerminalServerConnections && OperatingSystem.IsWindows()) {
             ProcessRegistryResources(httpContext);
         }
         ProcessResources(resourcesFolder);
@@ -289,6 +292,7 @@ public class WorkspaceBuilder {
         }
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private void ProcessRegistryResources(HttpContext? httpContext = null) {
         var supportsCentralizedPublishing = PoliciesManager.RawPolicies["RegistryApps.Enabled"] != "true";
         var centralizedPublishingCollectionName = AppId.ToCollectionName();
@@ -574,6 +578,11 @@ public class WorkspaceBuilder {
         try {
             // if the icon is from the registry, we get the dimensions from there
             if (relativeExtenesionlessIconPath.StartsWith("registry!")) {
+                if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1, 0)) {
+                    // this will cause ConstructIconElements to fall back to default icon
+                    throw new PlatformNotSupportedException("Registry icons are only supported on Windows.");
+                }
+
                 var appKeyName = relativeExtenesionlessIconPath.Split('!').LastOrDefault();
                 var maybeFileExtName = relativeExtenesionlessIconPath.Split('!')[1];
                 if (maybeFileExtName == appKeyName) {
@@ -600,6 +609,11 @@ public class WorkspaceBuilder {
 
             // if the icon is from a desktop stored in the registry, resolve the icon from there
             else if (relativeExtenesionlessIconPath.StartsWith("registryDesktop!")) {
+                if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1, 0)) {
+                    // this will cause ConstructIconElements to fall back to default icon
+                    throw new PlatformNotSupportedException("Registry icons are only supported on Windows.");
+                }
+
                 var appKeyName = relativeExtenesionlessIconPath.Split('!').LastOrDefault();
 
                 if (appKeyName is null) {

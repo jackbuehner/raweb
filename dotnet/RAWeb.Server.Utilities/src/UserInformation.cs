@@ -502,6 +502,7 @@ public class UserInformation {
   /// use <see cref="FromDownLevelLogonName"/> or <see cref="FromPrincipal"/>.
   /// </remarks>
   /// <returns>A <see cref="UserInformation"/> object, or null if the identity has no user SID.</returns>
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static UserInformation? FromWindowsIdentity(WindowsIdentity identity) {
     if (identity?.User is null) {
       return null;

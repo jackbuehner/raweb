@@ -196,6 +196,7 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
   /// <param name="request"></param>
   /// <returns></returns>
   /// <exception cref="ArgumentNullException"></exception>
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static AuthTicket FromHttpRequestIdentity(Microsoft.AspNetCore.Http.HttpRequest request) {
     if (request == null) {
       throw new ArgumentNullException(nameof(request), "HttpRequest cannot be null.");
@@ -215,6 +216,7 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
   /// </summary>
   /// <param name="userLogonToken"></param>
   /// <returns></returns>
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static AuthTicket FromLogonToken(IntPtr userLogonToken) {
     using (var logonUserIdentity = new WindowsIdentity(userLogonToken)) {
       return FromWindowsIdentity(logonUserIdentity);
@@ -229,6 +231,7 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
   /// </summary>
   /// <param name="logonUserIdentity"></param>
   /// <returns></returns>
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public static AuthTicket FromWindowsIdentity(WindowsIdentity logonUserIdentity) {
     var userSid = logonUserIdentity.User?.Value;
     if (userSid is null) {

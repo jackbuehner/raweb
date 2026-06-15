@@ -3,13 +3,12 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.NetworkInformation;
-using System.Security.AccessControl;
-using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
+using RAWeb.Sddl;
 
 namespace RAWeb.Server.Management;
 
@@ -183,7 +182,7 @@ public sealed class SystemDesktop : ManagedResource {
         appKey.SetValue("Folders", VirtualFolders);
 
         if (SecurityDescriptor != null) {
-          appKey.SetValue("SecurityDescriptor", SecurityDescriptor.GetSddlForm(AccessControlSections.All));
+          appKey.SetValue("SecurityDescriptor", SecurityDescriptor.GetSddlForm());
         }
         else {
           appKey.DeleteValue("SecurityDescriptor", false);
@@ -289,7 +288,7 @@ public sealed class SystemDesktop : ManagedResource {
     return rdpLines.Aggregate(new StringBuilder(), (sb, line) => sb.AppendLine(line));
   }
 
-  public override (ZipArchive archive, ZipArchiveEntry rdpFileEntry, ZipArchiveEntry metadataEntry, string rdpFileString, ManagedFileResource.MetadataDTO metadata) ToResourceFile(bool skipIcons = false, SecurityIdentifier? userSid = null) {
+  public override (ZipArchive archive, ZipArchiveEntry rdpFileEntry, ZipArchiveEntry metadataEntry, string rdpFileString, ManagedFileResource.MetadataDTO metadata) ToResourceFile(bool skipIcons = false, System.Security.Principal.SecurityIdentifier? userSid = null) {
     var memoryStream = new MemoryStream();
     var archive = new ZipArchive(memoryStream, ZipArchiveMode.Update);
 
@@ -314,7 +313,7 @@ public sealed class SystemDesktop : ManagedResource {
       Name = Name,
       IncludeInWorkspace = IncludeInWorkspace,
       IconPath = "wallpaper.png",
-      SecurityDescriptorSddl = SecurityDescriptor?.GetSddlForm(AccessControlSections.All),
+      SecurityDescriptorSddl = SecurityDescriptor?.GetSddlForm(),
       VirtualFolders = VirtualFolders is not null && VirtualFolders.Length > 0
         ? [.. VirtualFolders.Where(path => !string.IsNullOrWhiteSpace(path))]
         : null
@@ -388,9 +387,9 @@ public sealed class SystemDesktop : ManagedResource {
   /// <param name="userSid"></param>
   /// <param name="rootedTempPath"></param>
   /// <returns></returns>
-  public MemoryStream GetWallpaperStream(ManagedFileResource.ImageTheme theme, SecurityIdentifier? userSid) {
+  public MemoryStream GetWallpaperStream(ManagedFileResource.ImageTheme theme, System.Security.Principal.SecurityIdentifier? userSid) {
     // this operation requires elevated privileges when we need to read other user's registry hive
-    if (userSid is not null && userSid.ToString() != WindowsIdentity.GetCurrent().User?.ToString()) {
+    if (userSid is not null && userSid.ToString() != System.Security.Principal.WindowsIdentity.GetCurrent().User?.ToString()) {
       ElevatedPrivileges.Require();
     }
 

@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Win32;
+using RAWeb.Sddl;
 using RAWeb.Server.Management;
 
 namespace RAWeb.Server.Utilities;
@@ -635,7 +636,7 @@ public class WorkspaceBuilder {
                 }
 
                 // get the wallpaper as a stream
-                var userSid = _authenticatedUserInfo is null ? null : new SecurityIdentifier(_authenticatedUserInfo.Sid);
+                var userSid = _authenticatedUserInfo is null ? null : new System.Security.Principal.SecurityIdentifier(_authenticatedUserInfo.Sid);
                 Stream wallpaperStream;
                 if (_managedResourceService is not null) {
                     wallpaperStream = _managedResourceService.GetWallpaperStream(resource, ManagedFileResource.ImageTheme.Light, userSid?.Value);

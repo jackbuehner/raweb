@@ -59,10 +59,14 @@
         "resolved": "1.1.0",
         "contentHash": "5VX7FOrmA+D854NUvTOyAnwsvB4Y+Of8E/I7/9NJrtyl6ZtGv9vJODSznaRHRMJnn5gpucUs24/Xcd/8EVoaeA=="
       },
+      "raweb.sddl": {
+        "type": "Project"
+      },
       "raweb.server.management": {
         "type": "Project",
         "dependencies": {
           "AF.Securify.ShellLink": "[1.1.0, )",
+          "RAWeb.Sddl": "[1.0.0, )",
           "System.DirectoryServices.Protocols": "[9.0.10, )",
           "System.Drawing.Common": "[9.0.10, )"
         }

@@ -6,12 +6,12 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
-using System.Security.AccessControl;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
+using RAWeb.Sddl;
 using static RAWeb.Server.Management.RemoteAppProperties;
 
 namespace RAWeb.Server.Management;
@@ -261,7 +261,7 @@ public class SystemRemoteApps(string? collectionName = null) {
           }
 
           if (SecurityDescriptor != null) {
-            appKey.SetValue("SecurityDescriptor", SecurityDescriptor.GetSddlForm(AccessControlSections.All));
+            appKey.SetValue("SecurityDescriptor", SecurityDescriptor.GetSddlForm());
           }
           else {
             appKey.DeleteValue("SecurityDescriptor", false);
@@ -312,7 +312,7 @@ public class SystemRemoteApps(string? collectionName = null) {
             appKey.SetValue("RDPFileContents", RdpFileString ?? ToRdpFileStringBuilder(null).ToString());
 
             if (SecurityDescriptor != null) {
-              appKey.SetValue("SecurityDescriptor", SecurityDescriptor.GetSddlForm(AccessControlSections.All));
+              appKey.SetValue("SecurityDescriptor", SecurityDescriptor.GetSddlForm());
             }
             else {
               appKey.DeleteValue("SecurityDescriptor", false);
@@ -542,7 +542,7 @@ public class SystemRemoteApps(string? collectionName = null) {
         IncludeInWorkspace = IncludeInWorkspace,
         IconPath = IconPath,
         IconIndex = IconIndex,
-        SecurityDescriptorSddl = SecurityDescriptor?.GetSddlForm(AccessControlSections.All),
+        SecurityDescriptorSddl = SecurityDescriptor?.GetSddlForm(),
         VirtualFolders = VirtualFolders is not null && VirtualFolders.Length > 0
           ? [.. VirtualFolders.Where(path => !string.IsNullOrWhiteSpace(path))]
           : null

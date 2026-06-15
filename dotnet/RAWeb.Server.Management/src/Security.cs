@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.DirectoryServices.Protocols;
 using System.Linq;
 using System.Net;
-using System.Security.AccessControl;
+using System.Runtime.Versioning;
 using System.Security.Principal;
 
 namespace RAWeb.Server.Management;
@@ -18,6 +18,7 @@ namespace RAWeb.Server.Management;
 /// <param name="displayName"></param>
 /// <param name="userPrincipalName"></param>
 /// <param name="principalKind"></param>
+[SupportedOSPlatform("windows")]
 public class ResolvedSecurityIdentifier(string sid, string domain, string userName, string displayName, string userPrincipalName, PrincipalKind principalKind) {
   public string Sid { get; set; } = sid;
   public string Domain { get; set; } = domain;
@@ -188,6 +189,7 @@ public class ResolvedSecurityIdentifier(string sid, string domain, string userNa
 /// <summary>
 /// A collection of resolved security identifiers (SIDs).
 /// </summary>
+[SupportedOSPlatform("windows")]
 public class ResolvedSecurityIdentifiers : Collection<ResolvedSecurityIdentifier> {
   public ResolvedSecurityIdentifiers() {
   }
@@ -374,92 +376,7 @@ public enum PrincipalKind {
   Other
 }
 
-public static class SecurityTransformers {
-  /// <summary>
-  /// Builds a <see cref="RawSecurityDescriptor"/> from collections of allowed and denied SIDs.
-  /// </summary>
-  /// <param name="allowedSids">
-  /// A collection of tuples (Sid, Rights) representing SIDs granted access.
-  /// Optional. May be <see langword="null"/>.
-  /// If <c>Rights</c> is <see langword="null"/>, defaults to <see cref="FileSystemRights.ReadData"/>.
-  /// </param>
-  /// <param name="deniedSids">
-  /// A collection of tuples (Sid, Rights) representing SIDs explicitly denied access.
-  /// Optional. May be <see langword="null"/>.
-  /// </param>
-  /// <returns>
-  /// A <see cref="RawSecurityDescriptor"/> containing a DACL with the specified allowed and denied entries.
-  /// </returns>
-  /// <remarks>
-  /// <para>
-  /// Deny access entries are inserted before allow entries.
-  /// </para>
-  /// <para>
-  /// The created descriptor contains only a DACL; the owner, group, and SACL fields are <see langword="null"/>.
-  /// </para>
-  /// </remarks>
-  public static RawSecurityDescriptor? SidRightsToRawSecurityDescriptor(
-    IEnumerable<Tuple<string, FileSystemRights?>>? allowedSids = null,
-    IEnumerable<Tuple<string, FileSystemRights?>>? deniedSids = null
-  ) {
-    var dacl = new RawAcl(2, 0);
-    var aceIndex = 0;
-
-    if ((deniedSids is null || !deniedSids.Any()) && (allowedSids is null || !allowedSids.Any())) {
-      return null;
-    }
-
-    // add deny access control entries (ACEs) first
-    if (deniedSids is not null) {
-      foreach (var (sidStr, rights) in deniedSids) {
-        var sid = new SecurityIdentifier(sidStr);
-        var rightsValue = rights ?? FileSystemRights.ReadData;
-
-        var ace = new CommonAce(
-            AceFlags.None,
-            AceQualifier.AccessDenied,
-            (int)rightsValue,
-            sid,
-            false,
-            null
-        );
-
-        dacl.InsertAce(aceIndex++, ace);
-      }
-    }
-
-    // add allow access control entries (ACEs)
-    if (allowedSids is not null) {
-      foreach (var (sidStr, rights) in allowedSids) {
-        var sid = new SecurityIdentifier(sidStr);
-        var rightsValue = rights ?? FileSystemRights.ReadData;
-
-        var ace = new CommonAce(
-            AceFlags.None,
-            AceQualifier.AccessAllowed,
-            (int)rightsValue,
-            sid,
-            false,
-            null
-        );
-
-        dacl.InsertAce(aceIndex++, ace);
-      }
-    }
-
-    // combine ACEs into a RawSecurityDescriptor
-    var descriptor = new RawSecurityDescriptor(
-        ControlFlags.DiscretionaryAclPresent,
-        owner: null,
-        group: null,
-        systemAcl: null,
-        discretionaryAcl: dacl
-    );
-
-    return descriptor;
-  }
-}
-
+[SupportedOSPlatform("windows")]
 public static class SecurityIdentifierExtensions {
   /// <summary>
   /// Gets the NetBIOS domain name for a given SecurityIdentifier (SID).
@@ -539,98 +456,6 @@ public static class SecurityIdentifierExtensions {
   }
 }
 
-public static class SecurityDescriptorExtensions {
-  /// <summary>
-  /// Gets the list of allowed ACEs from a RawSecurityDescriptor.
-  /// <br /><br />
-  /// If you need to find which SIDs are allowed AND NOT DENIED,
-  /// use <see cref="GetAllowedSids(RawSecurityDescriptor)"/> instead.
-  /// </summary>
-  /// <param name="securityDescriptor"></param>
-  /// <param name="requiredRights"></param>
-  /// <returns></returns>
-  public static List<CommonAce> GetAccessAllowedAces(this RawSecurityDescriptor securityDescriptor, FileSystemRights? requiredRights = null) {
-    if (securityDescriptor.DiscretionaryAcl is null) {
-      return [];
-    }
-
-    return securityDescriptor.DiscretionaryAcl
-      .OfType<CommonAce>()
-      .Where(ace => {
-        var isAllowedAce = ace.AceType == AceType.AccessAllowed;
-        var hasRequiredRights = !requiredRights.HasValue || (ace.AccessMask & (int)requiredRights) == (int)requiredRights;
-        return isAllowedAce && hasRequiredRights;
-      })
-      .ToList();
-  }
-
-  /// <summary>
-  /// Gets the list of denied ACEs from a RawSecurityDescriptor.
-  /// </summary>
-  /// <param name="securityDescriptor"></param>
-  /// <returns></returns>
-  public static List<CommonAce> GetAccessDeniedAces(this RawSecurityDescriptor securityDescriptor, FileSystemRights? requiredRights = null) {
-    if (securityDescriptor.DiscretionaryAcl is null) {
-      return [];
-    }
-
-    return securityDescriptor.DiscretionaryAcl
-      .OfType<CommonAce>()
-      .Where(ace => {
-        var isAllowedAce = ace.AceType == AceType.AccessDenied;
-        var hasRequiredRights = !requiredRights.HasValue || (ace.AccessMask & (int)requiredRights) == (int)requiredRights;
-        return isAllowedAce && hasRequiredRights;
-      })
-      .ToList();
-  }
-
-  /// <summary>
-  /// Gets the list of allowed SIDs from a RawSecurityDescriptor,
-  /// excluding any that are also explicitly denied.
-  /// </summary>
-  /// <param name="securityDescriptor"></param>
-  /// <param name="requiredRights"></param>
-  /// <returns></returns>
-  public static List<SecurityIdentifier> GetAllowedSids(this RawSecurityDescriptor securityDescriptor, FileSystemRights? requiredRights = null) {
-    // since we need to exclude denined SIDs, get the denied ACEs first
-    var deniedAces = securityDescriptor.GetAccessDeniedAces();
-
-    // get the allowed ACEs that are not also denied
-    return securityDescriptor
-      .GetAccessAllowedAces(requiredRights)
-      .Select(ace => {
-        // only include if not also denied
-        if (!deniedAces.Any(deniedAce => deniedAce.SecurityIdentifier.Equals(ace.SecurityIdentifier))) {
-          return ace.SecurityIdentifier;
-        }
-        return null;
-      })
-      // filter out nulls
-      .Where(sid => sid != null)
-      .ToList()!;
-  }
-
-  /// <summary>
-  /// Gets the list of explicitly allowed SIDs from a RawSecurityDescriptor.
-  /// </summary>
-  /// <param name="securityDescriptor"></param>
-  /// <param name="requiredRights"></param>
-  /// <returns></returns>
-  public static List<SecurityIdentifier> GetExplicitlyAllowedSids(this RawSecurityDescriptor securityDescriptor, FileSystemRights? requiredRights = null) {
-    return [.. securityDescriptor.GetAccessAllowedAces(requiredRights).Select(ace => ace.SecurityIdentifier)];
-  }
-
-  /// <summary>
-  /// Gets the list of explicitly denied SIDs from a RawSecurityDescriptor.
-  /// </summary>
-  /// <param name="securityDescriptor"></param>
-  /// <param name="requiredRights"></param>
-  /// <returns></returns>
-  public static List<SecurityIdentifier> GetExplicitlyDeniedSids(this RawSecurityDescriptor securityDescriptor, FileSystemRights? requiredRights = null) {
-    return [.. securityDescriptor.GetAccessDeniedAces(requiredRights).Select(ace => ace.SecurityIdentifier)];
-  }
-}
-
 // Shared LDAP helpers used by ResolvedSecurityIdentifier and SecurityIdentifierExtensions
 public static class LdapHelpers {
   /// <summary>
@@ -675,6 +500,7 @@ public static class LdapHelpers {
   /// </summary>
   /// <param name="sid"></param>
   /// <returns></returns>
+  [SupportedOSPlatform("windows")]
   public static string LdapEncodeSid(SecurityIdentifier sid) {
     var bytes = new byte[sid.BinaryLength];
     sid.GetBinaryForm(bytes, 0);

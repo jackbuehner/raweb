@@ -1631,7 +1631,7 @@ public partial class WorkspaceBuilderTests {
       iconIndex: null,
       includeInWorkspace: true,
       virtualFolders: null,
-      securityDescriptor: new System.Security.AccessControl.RawSecurityDescriptor("D:(A;;0x1;;;S-1-5-32-544)")
+      securityDescriptor: new RAWeb.Sddl.RawSecurityDescriptor("D:(A;;0x1;;;S-1-5-32-544)")
     ).WriteToFile();
 
     static async Task Assertion(XDocument doc) {

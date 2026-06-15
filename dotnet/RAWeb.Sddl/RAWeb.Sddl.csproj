@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Title>RAWeb Server Management Code</Title>
+    <Title>RAWeb SDDL Library</Title>
     <Product>RAWeb</Product>
     <Version>1.0.0.0</Version>
     <FileVersion>1.0.0.0</FileVersion>
@@ -21,16 +21,5 @@
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <NoWarn>$(NoWarn);CS7035</NoWarn>
   </PropertyGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="AF.Securify.ShellLink" Version="1.1.0" />
-    <Reference Include="PriFormat" />
-    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.10" />
-    <PackageReference Include="System.Drawing.Common" Version="9.0.10" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\RAWeb.Sddl\RAWeb.Sddl.csproj" />
-  </ItemGroup>
 
 </Project>

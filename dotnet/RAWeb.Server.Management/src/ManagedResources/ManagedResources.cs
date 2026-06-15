@@ -4,8 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Security.AccessControl;
-using System.Security.Principal;
+using RAWeb.Sddl;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -159,12 +158,12 @@ public abstract class ManagedResource(ManagedResourceSource source, string ident
       }
 
       var allowed = SecurityDescriptorExtensions
-          .GetExplicitlyAllowedSids(SecurityDescriptor, FileSystemRights.ReadData)
+          .GetExplicitlyAllowedSids(SecurityDescriptor, FileAccessRights.ReadData)
           .Select(sid => sid.Value)
           .ToList();
 
       var denied = SecurityDescriptorExtensions
-          .GetExplicitlyDeniedSids(SecurityDescriptor, FileSystemRights.ReadData)
+          .GetExplicitlyDeniedSids(SecurityDescriptor, FileAccessRights.ReadData)
           .Select(sid => sid.Value)
           .ToList();
 
@@ -205,7 +204,7 @@ public abstract class ManagedResource(ManagedResourceSource source, string ident
   /// </summary>
   /// <param name="skipIcons">When true, icons will not be written to the in-memory .resource file.</param>
   /// <exception cref="NotSupportedException"></exception>
-  public virtual (ZipArchive archive, ZipArchiveEntry rdpFileEntry, ZipArchiveEntry metadataEntry, string rdpFileString, ManagedFileResource.MetadataDTO metadata) ToResourceFile(bool skipIcons = false, SecurityIdentifier? userSid = null) {
+  public virtual (ZipArchive archive, ZipArchiveEntry rdpFileEntry, ZipArchiveEntry metadataEntry, string rdpFileString, ManagedFileResource.MetadataDTO metadata) ToResourceFile(bool skipIcons = false, System.Security.Principal.SecurityIdentifier? userSid = null) {
     throw new NotSupportedException($"In-memory resource file generation is not supported for resources of type {GetType().Name}.");
   }
 
@@ -398,11 +397,10 @@ public class SecurityDescriptionDTO(List<string>? readAccessAllowedSids = null, 
   /// </summary>
   public List<string> ReadAccessDeniedSids { get; set; } = readAccessDeniedSids ?? [];
 
-  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
   public RawSecurityDescriptor? ToRawSecurityDescriptor() {
     return SecurityTransformers.SidRightsToRawSecurityDescriptor(
-      allowedSids: ReadAccessAllowedSids.ConvertAll(sid => new Tuple<string, FileSystemRights?>(sid, FileSystemRights.ReadData)),
-      deniedSids: ReadAccessDeniedSids.ConvertAll(sid => new Tuple<string, FileSystemRights?>(sid, FileSystemRights.ReadData))
+      allowedSids: ReadAccessAllowedSids.ConvertAll(sid => new Tuple<string, FileAccessRights?>(sid, FileAccessRights.ReadData)),
+      deniedSids: ReadAccessDeniedSids.ConvertAll(sid => new Tuple<string, FileAccessRights?>(sid, FileAccessRights.ReadData))
     );
   }
 }

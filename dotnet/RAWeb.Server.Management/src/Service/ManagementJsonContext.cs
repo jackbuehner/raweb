@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using RAWeb.Sddl;
 
 namespace RAWeb.Server.Management;
 
@@ -17,4 +18,8 @@ namespace RAWeb.Server.Management;
 [JsonSerializable(typeof(ManagedResources))]
 [JsonSerializable(typeof(InstalledApp))]
 [JsonSerializable(typeof(InstalledApp[]))]
+[JsonSerializable(typeof(RawSecurityDescriptor), TypeInfoPropertyName = "SddlRawSecurityDescriptor")]
+[JsonSerializable(typeof(RawAcl), TypeInfoPropertyName = "SddlRawAcl")]
+[JsonSerializable(typeof(ControlFlags), TypeInfoPropertyName = "SddlControlFlags")]
+[JsonSerializable(typeof(SecurityIdentifier), TypeInfoPropertyName = "SddlSecurityIdentifier")]
 public partial class ManagementJsonContext : JsonSerializerContext { }

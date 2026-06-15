@@ -97,7 +97,7 @@ public class FileAccessInfoTests {
           null,
           null,
           null,
-          new RawSecurityDescriptor("O:BAG:BAD:(A;;FA;;;S-1-5-21-1000)")
+          new RAWeb.Sddl.RawSecurityDescriptor("O:BAG:BAD:(A;;FA;;;S-1-5-21-1000)")
       );
       resource.WriteToFile();
 
@@ -130,7 +130,7 @@ public class FileAccessInfoTests {
           null,
           null,
           null,
-          new RawSecurityDescriptor($"O:BAG:BAD:(A;;FA;;;{UserInformation.AnonymousUser.Sid})")
+          new RAWeb.Sddl.RawSecurityDescriptor($"O:BAG:BAD:(A;;FA;;;{UserInformation.AnonymousUser.Sid})")
       );
       resource.WriteToFile();
 
@@ -318,7 +318,7 @@ public class FileAccessInfoTests {
           null,
           null,
           null,
-          new RawSecurityDescriptor($"O:BAG:BAD:(A;;FA;;;S-1-5-21-2)")
+          new RAWeb.Sddl.RawSecurityDescriptor($"O:BAG:BAD:(A;;FA;;;S-1-5-21-2)")
       );
       resource.WriteToFile();
 
@@ -352,7 +352,7 @@ public class FileAccessInfoTests {
           null,
           null,
           null,
-          new RawSecurityDescriptor($"O:BAG:BAD:(A;;FA;;;{user.Sid})")
+          new RAWeb.Sddl.RawSecurityDescriptor($"O:BAG:BAD:(A;;FA;;;{user.Sid})")
       );
       resource.WriteToFile();
 
@@ -386,7 +386,7 @@ public class FileAccessInfoTests {
           null,
           null,
           null,
-          new RawSecurityDescriptor($"O:BAG:BAD:(A;;FA;;;{UserInformation.AnonymousUser.Sid})")
+          new RAWeb.Sddl.RawSecurityDescriptor($"O:BAG:BAD:(A;;FA;;;{UserInformation.AnonymousUser.Sid})")
       );
       resource.WriteToFile();
 

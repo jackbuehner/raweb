@@ -254,7 +254,7 @@ public class ResourceContentsResolverTests {
     }));
   }
 
-  private static string WriteManagedResource(string fileName, string rdpContent, System.Security.AccessControl.RawSecurityDescriptor? securityDescriptor = null) {
+  private static string WriteManagedResource(string fileName, string rdpContent, RAWeb.Sddl.RawSecurityDescriptor? securityDescriptor = null) {
     var managedResourcesPath = Path.Combine(Constants.AppDataFolderPath, "managed-resources");
     var filePath = Path.Combine(managedResourcesPath, fileName + ".resource");
     var resource = new Management.ManagedFileResource(filePath, null, rdpContent, null, null, null, null, securityDescriptor);
@@ -296,7 +296,7 @@ public class ResourceContentsResolverTests {
   [Test]
   public async Task ResolveResource_ManagedResource_ExistingFileWithSecurityDescriptorAllowingUserReturnsResolvedResult() {
     var userInfo = MakeUser();
-    var sd = new System.Security.AccessControl.RawSecurityDescriptor($"D:(A;;0x1;;;{userInfo.Sid})");
+    var sd = new RAWeb.Sddl.RawSecurityDescriptor($"D:(A;;0x1;;;{userInfo.Sid})");
     var relativePath = WriteManagedResource("allowed-resource", "full address:s:myserver\r\n", sd);
 
     var result = ResourceContentsResolver.ResolveResource(userInfo, relativePath, ResourceOrigin.ManagedResource);
@@ -308,7 +308,7 @@ public class ResourceContentsResolverTests {
   public async Task ResolveResource_ManagedResource_ExistingFileWithSecurityDescriptorWithoutUserReturnsForbidden() {
     var userInfo = MakeUser();
     var adminSid = "S-1-5-32-544"; // test user is not an admin, so this should result in forbidden
-    var sd = new System.Security.AccessControl.RawSecurityDescriptor($"D:(A;;0x1;;;{adminSid})");
+    var sd = new RAWeb.Sddl.RawSecurityDescriptor($"D:(A;;0x1;;;{adminSid})");
     var relativePath = WriteManagedResource("restricted-resource", "full address:s:myserver\r\n", sd);
 
     var result = ResourceContentsResolver.ResolveResource(userInfo, relativePath, ResourceOrigin.ManagedResource);
@@ -321,7 +321,7 @@ public class ResourceContentsResolverTests {
   public async Task ResolveResource_ManagedResource_ExistingFileWithSecurityDescriptorAllowingUsersGroupReturnsResolvedResult() {
     var groups = new GroupInformation[] { new("Remote Desktop Users", "S-1-5-32-555") };
     var userInfo = new UserInformation("S-1-5-21-1000", "jdoe", "DOMAIN", null, groups);
-    var sd = new System.Security.AccessControl.RawSecurityDescriptor("D:(A;;0x1;;;S-1-5-32-555)");
+    var sd = new RAWeb.Sddl.RawSecurityDescriptor("D:(A;;0x1;;;S-1-5-32-555)");
     var relativePath = WriteManagedResource("group-allowed-resource", "full address:s:myserver\r\n", sd);
 
     var result = ResourceContentsResolver.ResolveResource(userInfo, relativePath, ResourceOrigin.ManagedResource);
@@ -334,7 +334,7 @@ public class ResourceContentsResolverTests {
     // User is in Remote Desktop Users (S-1-5-32-555) but the SD only allows Administrators (S-1-5-32-544).
     var groups = new GroupInformation[] { new("Remote Desktop Users", "S-1-5-32-555") };
     var userInfo = new UserInformation("S-1-5-21-1000", "jdoe", "DOMAIN", null, groups);
-    var sd = new System.Security.AccessControl.RawSecurityDescriptor("D:(A;;0x1;;;S-1-5-32-544)");
+    var sd = new RAWeb.Sddl.RawSecurityDescriptor("D:(A;;0x1;;;S-1-5-32-544)");
     var relativePath = WriteManagedResource("group-denied-resource", "full address:s:myserver\r\n", sd);
 
     var result = ResourceContentsResolver.ResolveResource(userInfo, relativePath, ResourceOrigin.ManagedResource);
@@ -346,7 +346,7 @@ public class ResourceContentsResolverTests {
   [Test]
   public async Task ResolveResource_ManagedResource_ExistingFileWithSecurityDesktopAllowingAndDenyingUserReturnsForbidden() {
     var userInfo = MakeUser();
-    var sd = new System.Security.AccessControl.RawSecurityDescriptor($"D:(A;;0x1;;;{userInfo.Sid})(D;;0x1;;;{userInfo.Sid})");
+    var sd = new RAWeb.Sddl.RawSecurityDescriptor($"D:(A;;0x1;;;{userInfo.Sid})(D;;0x1;;;{userInfo.Sid})");
     var relativePath = WriteManagedResource("conflicting-resource", "full address:s:myserver\r\n", sd);
 
     var result = ResourceContentsResolver.ResolveResource(userInfo, relativePath, ResourceOrigin.ManagedResource);

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using RAWeb.Sddl;
 using RAWeb.Server.Management;
 
 namespace RAWeb.Server.Utilities;
@@ -128,10 +129,8 @@ public class FileAccessInfo {
                 }
 
                 // otherwise, check if the user or their groups are in the allowed SIDs
-                var allowedSids = managedResource.SecurityDescriptor.GetAllowedSids();
-                var userSid = new SecurityIdentifier(userInfo.Sid);
-                var groupSids = userInfo.Groups.Select(g => new SecurityIdentifier(g.Sid)).ToList();
-                if (allowedSids.Any(sid => sid.Equals(userSid)) || groupSids.Any(gsid => allowedSids.Any(sid => sid.Equals(gsid)))) {
+                var allowedSids = managedResource.SecurityDescriptor.GetAllowedSids().Select(sid => sid.Value).ToList();
+                if (allowedSids.Contains(userInfo.Sid) || userInfo.Groups.Any(g => allowedSids.Contains(g.Sid))) {
                     return true;
                 }
                 else {
@@ -213,20 +212,20 @@ public class FileAccessInfo {
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static AccessInfo GetAccessInfo(List<FileSystemAccessRule> accessRules, UserInformation userInfo) {
         // get the security identifiers for the user and their groups
-        var userSid = new SecurityIdentifier(userInfo.Sid);
-        var groupSids = userInfo.Groups.Select(g => new SecurityIdentifier(g.Sid)).ToList();
-        var allSids = new List<SecurityIdentifier> { userSid };
+        var userSid = new System.Security.Principal.SecurityIdentifier(userInfo.Sid);
+        var groupSids = userInfo.Groups.Select(g => new System.Security.Principal.SecurityIdentifier(g.Sid)).ToList();
+        var allSids = new List<System.Security.Principal.SecurityIdentifier> { userSid };
         allSids.AddRange(groupSids);
 
         // check for the presence of access denied and access allowed rules
         var readDenied = accessRules
             .Where(rule => rule.AccessControlType == AccessControlType.Deny)
             .Where(rule => (rule.FileSystemRights & FileSystemRights.Read) == FileSystemRights.Read)
-            .Any(rule => allSids.Any(sid => sid.Equals(rule.IdentityReference.Translate(typeof(SecurityIdentifier)))));
+            .Any(rule => allSids.Any(sid => sid.Equals(rule.IdentityReference.Translate(typeof(System.Security.Principal.SecurityIdentifier)))));
         var readAllowed = accessRules
             .Where(rule => rule.AccessControlType == AccessControlType.Allow)
             .Where(rule => (rule.FileSystemRights & FileSystemRights.Read) == FileSystemRights.Read)
-            .Any(rule => allSids.Any(sid => sid.Equals(rule.IdentityReference.Translate(typeof(SecurityIdentifier)))));
+            .Any(rule => allSids.Any(sid => sid.Equals(rule.IdentityReference.Translate(typeof(System.Security.Principal.SecurityIdentifier)))));
 
         return new AccessInfo(readAllowed, readDenied);
     }

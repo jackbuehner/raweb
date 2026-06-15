@@ -251,10 +251,14 @@
           "RAWeb.Server.Utilities": "[1.0.0, )"
         }
       },
+      "raweb.sddl": {
+        "type": "Project"
+      },
       "raweb.server.management": {
         "type": "Project",
         "dependencies": {
           "AF.Securify.ShellLink": "[1.1.0, )",
+          "RAWeb.Sddl": "[1.0.0, )",
           "System.DirectoryServices.Protocols": "[9.0.10, )",
           "System.Drawing.Common": "[9.0.10, )"
         }

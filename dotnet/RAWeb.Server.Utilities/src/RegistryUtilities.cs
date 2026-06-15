@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Security.AccessControl;
-using System.Security.Principal;
 using System.Text;
 using Microsoft.AspNetCore.Http;
+using RAWeb.Sddl;
 using RAWeb.Server.Management;
 
 namespace RAWeb.Server.Utilities;
@@ -70,7 +69,7 @@ public class RegistryReader {
 
             // check if the user or any of their groups have read access
             var accessAllowed = securityDescriptor
-                .GetAllowedSids(FileSystemRights.ReadData)
+                .GetAllowedSids(FileAccessRights.ReadData)
                 .Any(aceSid => allSids.Any(sid => sid.Equals(aceSid)));
 
             if (!accessAllowed) {

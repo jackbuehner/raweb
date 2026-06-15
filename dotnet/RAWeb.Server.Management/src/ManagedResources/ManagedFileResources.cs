@@ -4,8 +4,8 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Security.AccessControl;
 using System.Text;
+using RAWeb.Sddl;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -307,7 +307,7 @@ public class ManagedFileResource : ManagedResource {
       IncludeInWorkspace = IncludeInWorkspace,
       IconPath = string.IsNullOrWhiteSpace(IconPath) ? null : IconPath,
       IconIndex = IconIndex,
-      SecurityDescriptorSddl = SecurityDescriptor?.GetSddlForm(AccessControlSections.All),
+      SecurityDescriptorSddl = SecurityDescriptor?.GetSddlForm(),
       VirtualFolders = VirtualFolders is not null && VirtualFolders.Length > 0
         ? [.. VirtualFolders.Where(path => !string.IsNullOrWhiteSpace(path))]
         : null

@@ -14,7 +14,7 @@
   const message = ref<string>();
   const submitButtonText = ref<string>();
   const cancelButtonText = ref<string>();
-  const passwordOnlyPromptCredentials = ref<PasswordOnlyPromptCredentials | null>(null);
+  const passwordOnlyPromptCredentials = ref<PasswordOnlyPromptCredentials | PinPromptCredentials | null>(null);
   const useAcrylicBackdrop = ref<boolean>(false);
 
   const username = ref<string>('');
@@ -22,23 +22,35 @@
   const rememberCredentials = ref<boolean>(false);
 
   type DoneFunction = (status?: true | Error) => void;
-  interface Credentials {
+  interface PasswordCredentials {
+    type: 'password';
     domain: string;
     username: string;
     password: string;
     remember: boolean;
+  }
+  interface PinCredentials {
+    type: 'pin';
+    pin: string;
   }
 
   interface PasswordOnlyPromptCredentials {
     displayName: string;
     domain: string;
     username: string;
+    type?: 'password';
+  }
+  interface PinPromptCredentials {
+    displayName?: string;
+    type: 'pin';
   }
 
-  type ResolveValue = { done: DoneFunction; credentials: Credentials };
+  type ResolveValue = { done: DoneFunction; credentials: PasswordCredentials | PinCredentials };
   let resolvePromise = ref<((value: ResolveValue | PromiseLike<ResolveValue>) => void) | null>(null);
   let rejectPromise = ref<((reason?: any) => void) | null>(null);
-  let beforeResolve = ref<((credentials: Credentials) => Promise<boolean>) | undefined>(undefined);
+  let beforeResolve = ref<
+    ((credentials: PasswordCredentials | PinCredentials) => Promise<boolean>) | undefined
+  >(undefined);
 
   /**
    * Triggers the confirm dialog to be shown with the specified parameters.
@@ -52,9 +64,10 @@
     cancelText = 'Cancel',
     errorMessage = '',
     /**
-     * When provided, the dialog will only prompt for a password.
+     * When provided, the dialog will only prompt for a password or
+     *  pin, depending on the type.
      */
-    _passwordOnlyPromptCredentials: PasswordOnlyPromptCredentials | null = null,
+    _passwordOnlyPromptCredentials: PasswordOnlyPromptCredentials | PinPromptCredentials | null = null,
     /**
      * When provided, this function will be called before the dialog resolves.
      *
@@ -62,9 +75,9 @@
      *
      * If it returns true, the dialog will resolve and close.
      */
-    _beforeResolve?: (credentials: Credentials) => Promise<boolean>,
+    _beforeResolve?: (credentials: PasswordCredentials | PinCredentials) => Promise<boolean>,
     _useAcrylicBackdrop?: boolean
-  ): Promise<{ done: DoneFunction; credentials: Credentials }> {
+  ): Promise<{ done: DoneFunction; credentials: PasswordCredentials | PinCredentials }> {
     if (resolvePromise.value) {
       cancel('ALREADY_OPEN');
     }
@@ -74,18 +87,24 @@
     submitButtonText.value = submitText;
     cancelButtonText.value = cancelText;
     passwordOnlyPromptCredentials.value = _passwordOnlyPromptCredentials;
-    if (_passwordOnlyPromptCredentials) {
+    if (
+      _passwordOnlyPromptCredentials &&
+      'username' in _passwordOnlyPromptCredentials &&
+      _passwordOnlyPromptCredentials.username
+    ) {
       username.value = `${_passwordOnlyPromptCredentials.domain}\\${_passwordOnlyPromptCredentials.username}`;
     }
     submitError.value = errorMessage ? new Error(errorMessage) : null;
     beforeResolve.value = _beforeResolve;
     useAcrylicBackdrop.value = _useAcrylicBackdrop ?? false;
 
-    return new Promise<{ done: DoneFunction; credentials: Credentials }>((resolve, reject) => {
-      resolvePromise.value = resolve;
-      rejectPromise.value = reject;
-      open();
-    });
+    return new Promise<{ done: DoneFunction; credentials: PasswordCredentials | PinCredentials }>(
+      (resolve, reject) => {
+        resolvePromise.value = resolve;
+        rejectPromise.value = reject;
+        open();
+      }
+    );
   }
 
   const formFieldKey = ref<number>(0);
@@ -117,7 +136,7 @@
     if (!domain) {
       domain = '.';
     }
-    if (!pureUsername) {
+    if (!pureUsername && passwordOnlyPromptCredentials.value?.type !== 'pin') {
       submitError.value = new Error(t('usernameRequired'));
       submitting.value = false;
       return;
@@ -128,12 +147,19 @@
       return;
     }
 
-    const credentials: Credentials = {
+    const passwordCredentials: PasswordCredentials = {
+      type: 'password',
       domain,
       username: pureUsername,
       password: password.value,
       remember: rememberCredentials.value,
     };
+    const pinCredentials: PinCredentials = {
+      type: 'pin',
+      pin: password.value,
+    };
+    const credentials =
+      passwordOnlyPromptCredentials.value?.type === 'pin' ? pinCredentials : passwordCredentials;
 
     const shouldResolveCallbackPromise = beforeResolve.value
       ? beforeResolve.value(credentials)
@@ -211,6 +237,23 @@
       }, 500);
     }
   });
+
+  // focus the first available input field when the dialog opens
+  watchEffect(() => {
+    if (isOpen.value && dialogRef.value) {
+      console.log('Security dialog opened, focusing first input field...');
+      setTimeout(() => {
+        const dialogId = unproxify(dialogRef.value)?.popoverId;
+        const dialogEl = document.getElementById(dialogId ?? '');
+        if (!dialogEl) {
+          return;
+        }
+
+        const firstInput = dialogEl.querySelector('input, textarea, select') as HTMLElement | null;
+        firstInput?.focus();
+      }, 100);
+    }
+  });
 </script>
 
 <template>
@@ -230,9 +273,30 @@
     <template #default="{ close }">
       <TextBlock>{{ message }}</TextBlock>
 
+      <div class="pin-prompt" v-if="passwordOnlyPromptCredentials?.type === 'pin'">
+        <svg width="48" height="48" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="6" cy="4" r="1.5" fill="#36b3fb" />
+          <circle cx="12" cy="4" r="1.5" fill="#32b0fb" />
+          <circle cx="18" cy="4" r="1.5" fill="#2cadfa" />
+          <circle cx="6" cy="10" r="1.5" fill="#17a0f9" />
+          <circle cx="12" cy="10" r="1.5" fill="#129df9" />
+          <circle cx="18" cy="10" r="1.5" fill="#0c9af9" />
+          <circle cx="6" cy="16" r="1.5" fill="#008df1" />
+          <circle cx="12" cy="16" r="1.5" fill="#0089eb" />
+          <circle cx="18" cy="16" r="1.5" fill="#0085e6" />
+          <circle cx="12" cy="22" r="1.5" fill="#0078d3" />
+        </svg>
+        <TextBlock variant="bodyLarge" style="font-size: 1.125rem" tag="p">{{
+          t('security.pinRequired')
+        }}</TextBlock>
+      </div>
+
       <form v-if="delayedIsOpen" action="" class="security-form" @keydown.enter.prevent="submit(close)">
         <TextBlock v-if="passwordOnlyPromptCredentials">
-          {{ passwordOnlyPromptCredentials.displayName }}
+          {{
+            passwordOnlyPromptCredentials.displayName ||
+            ('username' in passwordOnlyPromptCredentials ? passwordOnlyPromptCredentials.username : '')
+          }}
         </TextBlock>
         <TextBox
           v-else
@@ -245,10 +309,28 @@
         />
 
         <label>
-          <TextBlock v-if="passwordOnlyPromptCredentials" style="margin-bottom: 0.375rem">{{
-            t('security.password')
+          <TextBlock
+            v-if="
+              passwordOnlyPromptCredentials?.type === 'password' ||
+              passwordOnlyPromptCredentials?.type === undefined
+            "
+            style="margin-bottom: 0.375rem"
+            >{{ t('security.password') }}</TextBlock
+          >
+          <TextBlock v-if="passwordOnlyPromptCredentials?.type === 'pin'" style="margin-bottom: 0.375rem">{{
+            t('security.pin')
           }}</TextBlock>
           <TextBox
+            v-if="passwordOnlyPromptCredentials?.type === 'pin'"
+            :key="`pin-${formFieldKey}`"
+            v-model:value="password"
+            type="password"
+            required
+            autocomplete="off"
+            data-1p-ignore
+          />
+          <TextBox
+            v-else
             :key="`password-${formFieldKey}`"
             v-model:value="password"
             type="password"
@@ -258,8 +340,9 @@
           />
         </label>
 
-        <TextBlock v-if="passwordOnlyPromptCredentials">
-          {{ passwordOnlyPromptCredentials.domain }}\{{ passwordOnlyPromptCredentials.username }}
+        <TextBlock v-if="passwordOnlyPromptCredentials && 'username' in passwordOnlyPromptCredentials">
+          <span v-if="passwordOnlyPromptCredentials.domain">{{ passwordOnlyPromptCredentials.domain }}\</span>
+          {{ passwordOnlyPromptCredentials.username }}
         </TextBlock>
 
         <!-- <CheckBox v-model:checked="rememberCredentials" style="margin-top: 4px" disabled>Remember me</CheckBox> -->
@@ -305,5 +388,15 @@
     flex-direction: column;
     gap: 12px;
     margin: 28px 0 0 0;
+  }
+
+  .pin-prompt {
+    margin-top: 3rem;
+    margin-bottom: -0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
   }
 </style>

@@ -107,6 +107,36 @@
       "copyEmail": "Copy workspace email",
       "downloadConnectionFile": "Download connection file"
     },
+    "externalWorkspaces": {
+      "title": "External workspaces",
+      "desc": "Register workspace feeds from other servers to see their apps and devices in RAWeb.",
+      "manage": "Manage external workspaces",
+      "manager": {
+        "title": "External workspaces",
+        "locked": "Enter your PIN to view and manage your registered external workspaces.",
+        "lockedTitle": "External workspaces are locked",
+        "unlock": "Unlock",
+        "empty": "You haven't registered any external workspaces yet.",
+        "add": "Add workspace",
+        "addDialog": {
+          "title": "Add external workspace",
+          "name": "Name",
+          "namePlaceholder": "e.g. Contoso",
+          "url": "Feed URL",
+          "urlPlaceholder": "https://contoso.example.com/RDWeb/Feed/webfeed.aspx",
+          "invalidUrl": "Enter a valid feed URL.",
+          "save": "Add"
+        },
+        "downloadConnectionFile": "Download connection file",
+        "copy": "Copy URL",
+        "remove": "Remove",
+        "removeConfirm": {
+          "title": "Remove external workspace?",
+          "message": "\"{{name}}\" will be removed from your list of external workspaces. This does not affect the remote server.",
+          "confirm": "Remove"
+        }
+      }
+    },
     "language": {
       "title": "Language",
       "browserDefault": "Best match"
@@ -1355,9 +1385,14 @@
     "dialogTitle": "RAWeb Security",
     "username": "User name",
     "password": "Password",
+    "pin": "PIN",
     "sudoRequired": "Elevated privileges are required to perform this action.",
     "sudoTitle": "Confirm your password to continue",
     "sudoMessage": "You are about to enter elevated privileges mode. You will not be asked to re-authenticate for administrative actions again until {{time}}.",
-    "sudoGenericError": "An error occurred while attempting to elevate privileges. Please try again."
+    "sudoGenericError": "An error occurred while attempting to elevate privileges. Please try again.",
+    "pinTitle": "Making sure it's you",
+    "pinRequired": "Enter your RemoteApps & Devices PIN",
+    "pinGenericError": "An error occurred while attempting to validate your PIN. Please try again.",
+    "pinInvalidError": "The PIN is incorrect. Try again."
   }
 }

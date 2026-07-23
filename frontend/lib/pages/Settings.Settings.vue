@@ -404,6 +404,21 @@
   </section>
   <section>
     <div class="section-title-row">
+      <TextBlock variant="subtitle">{{ t('settings.externalWorkspaces.title') }}</TextBlock>
+    </div>
+    <div>
+      <TextBlock block>
+        {{ t('settings.externalWorkspaces.desc') }}
+      </TextBlock>
+      <RouterLink to="/settings/external-workspaces" custom v-slot="{ href, navigate }">
+        <Button style="margin-top: 8px" :href @click="navigate">
+          {{ t('settings.externalWorkspaces.manage') }}
+        </Button>
+      </RouterLink>
+    </div>
+  </section>
+  <section>
+    <div class="section-title-row">
       <TextBlock variant="subtitle">{{ t('settings.about.title') }}</TextBlock>
     </div>
     <div class="about">

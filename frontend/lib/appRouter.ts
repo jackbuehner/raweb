@@ -7,6 +7,7 @@ import DeviceClient from './pages/DeviceClient.vue';
 import Devices from './pages/Devices.vue';
 import Favorites from './pages/Favorites.vue';
 import Policies from './pages/Policies.vue';
+import SettingsExternalWorkspaces from './pages/Settings.ExternalWorkspaces.vue';
 import SettingsResourcesManager from './pages/Settings.ResourcesManager.vue';
 import SettingsSettings from './pages/Settings.Settings.vue';
 import Settings from './pages/Settings.vue';
@@ -25,6 +26,7 @@ const routes = [
       { path: '', name: 'appSettings', component: SettingsSettings },
       { path: 'policies', name: 'policies', component: Policies },
       { path: 'resources-manager', name: 'resourcesManager', component: SettingsResourcesManager },
+      { path: 'external-workspaces', name: 'externalWorkspaces', component: SettingsExternalWorkspaces },
     ],
   },
   { path: '/simple', component: Simple },

@@ -47,6 +47,7 @@ import {
 import { useObjectUrl } from './useObjectUrl.ts';
 import { useUpdateDetails } from './useUpdateDetails.ts';
 import { useWebfeedData } from './useWebfeedData.ts';
+import { workspaceTokens } from './workspaceTokens/index.mjs';
 
 export {
   buildManagedIconPath,
@@ -98,4 +99,5 @@ export {
   useObjectUrl,
   useUpdateDetails,
   useWebfeedData,
+  workspaceTokens,
 };

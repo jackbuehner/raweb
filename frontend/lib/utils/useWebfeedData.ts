@@ -1,8 +1,10 @@
+import { useCoreDataStore } from '$stores';
 import { prefixUserNS } from '$utils';
 import { isBrowser } from '$utils/environment.ts';
 import { parse, stringify } from 'devalue';
 import { computed, ComputedRef, ref, WritableComputedRef } from 'vue';
-import { getAppsAndDevices } from './getAppsAndDevices.ts';
+import { getAppsAndDevices, getExternalWorkspaceAppsAndDevices } from './getAppsAndDevices.ts';
+import { workspaceTokens } from './workspaceTokens/index.mjs';
 
 const storageKey = `getAppsAndDevices:data`;
 
@@ -54,6 +56,75 @@ if (isBrowser) {
 const loading = ref(false);
 const error = ref<unknown>();
 
+/**
+ * Fetches every registered external workspace and returns the ones that loaded successfully.
+ *
+ * Registered external workspaces (and their auth tokens) are stored encrypted behind a PIN, so
+ * this prompts to unlock them if they haven't been unlocked yet this session. If the user
+ * cancels (or unlocking otherwise fails), external workspaces are simply skipped rather than
+ * failing the whole workspace load, since the local workspace's data is still valid on its own.
+ */
+async function getExternalWorkspacesData(hidePortsWhenPossible: boolean) {
+  if (!workspaceTokens.isInitialized) {
+    try {
+      await workspaceTokens.decryptPersistedTokens();
+    } catch (err) {
+      console.debug('Skipping external workspaces; not unlocked:', err);
+      return [];
+    }
+  }
+
+  const { iisBase } = useCoreDataStore();
+  const results = await Promise.allSettled(
+    workspaceTokens.list().map(({ endpoint }) =>
+      getExternalWorkspaceAppsAndDevices(iisBase, endpoint, workspaceTokens.getCredentials(endpoint), {
+        hidePortsWhenPossible,
+      })
+    )
+  );
+
+  return results.flatMap((result) => {
+    if (result.status === 'rejected') {
+      console.error('Failed to fetch an external workspace:', result.reason);
+      return [];
+    }
+    console.log('Fetched external workspace successfully:', result.value);
+    return [result.value];
+  });
+}
+
+/**
+ * Merges the resources, terminal servers, and folders from registered external workspaces into
+ * the local workspace's data. IDs from external workspaces are already namespaced (see
+ * `getExternalWorkspaceAppsAndDevices`) so they cannot collide with the local workspace's IDs.
+ */
+function mergeWorkspaceData(
+  local: Awaited<ReturnType<typeof getAppsAndDevices>>,
+  externals: Awaited<ReturnType<typeof getExternalWorkspaceAppsAndDevices>>[]
+) {
+  if (externals.length === 0) {
+    return local;
+  }
+
+  const terminalServers = new Map(local.terminalServers);
+  const resources = [...local.resources];
+  const folders: typeof local.folders = { ...local.folders };
+
+  for (const external of externals) {
+    for (const [id, name] of external.terminalServers) {
+      terminalServers.set(id, name);
+    }
+    resources.push(...external.resources);
+    for (const [folder, folderResources] of Object.entries(external.folders)) {
+      folders[folder] = [...(folders[folder] ?? []), ...folderResources].sort((a, b) =>
+        a.title.localeCompare(b.title)
+      );
+    }
+  }
+
+  return { ...local, terminalServers, resources, folders };
+}
+
 async function getData(
   base?: string,
   { mergeTerminalServers = true, hidePortsWhenPossible = false, supportsCentralizedPublishing = false } = {}
@@ -66,8 +137,9 @@ async function getData(
     hidePortsWhenPossible,
     supportsCentralizedPublishing,
   })
-    .then((result) => {
-      data.value = result;
+    .then(async (result) => {
+      const externals = await getExternalWorkspacesData(hidePortsWhenPossible);
+      data.value = mergeWorkspaceData(result, externals);
       error.value = null;
     })
     .catch((err) => {

@@ -1,5 +1,5 @@
 /**
- * Retreives the .ASPXAUTH cookie values that we must use when fetching resources
+ * Retreives the Windows/NTLM credentials that we must use when fetching resources
  * from an external workspace provider.
  *
  * This function requires a decryption key. The key is the same key that was used
@@ -8,7 +8,7 @@
  */
 export async function getExternalWorkspaceTokens(
   decryptionKey: string
-): Promise<{ endpoint: string; token: string; name: string }[] | null> {
+): Promise<{ endpoint: string; username: string; password: string; name: string }[] | null> {
   const encryptedTokens = localStorage.getItem('externalWorkspaceTokens');
   if (!encryptedTokens) {
     return [];
@@ -55,8 +55,8 @@ export async function getExternalWorkspaceTokens(
 
   if (
     !decodedTokens.every(
-      (token): token is { endpoint: string; token: string; name?: string } =>
-        typeof token.endpoint === 'string' && typeof token.token === 'string'
+      (token): token is { endpoint: string; username: string; password: string; name?: string } =>
+        typeof token.endpoint === 'string' && typeof token.username === 'string' && typeof token.password === 'string'
     )
   ) {
     throw new Error('Decrypted tokens do not have the expected structure.');

@@ -382,6 +382,22 @@
     'use multimon:i': [0, 1],
     'videoplaybackmode:i': [0, 1],
   } as const;
+
+  const displayedTerminalServer = computed(() => {
+    if (terminalServer && !terminalServer.startsWith('ext:')) {
+      return terminalServer;
+    }
+
+    return (() => {
+      const address = resourceProperties.value?.connection['full address:s'] as string | undefined;
+      const addressContainsPort = address?.includes(':');
+      if (addressContainsPort) {
+        return address;
+      }
+      const port = resourceProperties.value?.connection['server port:i'];
+      return port ? `${address}:${port}` : address || '';
+    })();
+  });
 </script>
 
 <template>
@@ -457,7 +473,7 @@
               </p>
             </Field>
 
-            <Field>
+            <Field v-if="source !== UnmanagedResourceSource.ExternalWorkspace">
               <TextBlock>{{ t('resource.props.location') }}</TextBlock>
               <p class="current">
                 {{
@@ -494,18 +510,7 @@
             <Field>
               <TextBlock>{{ t('resource.props.ts') }}</TextBlock>
               <p class="current">
-                {{
-                  terminalServer ||
-                  (() => {
-                    const address = resourceProperties?.connection['full address:s'] as string | undefined;
-                    const addressContainsPort = address?.includes(':');
-                    if (addressContainsPort) {
-                      return address;
-                    }
-                    const port = resourceProperties?.connection['server port:i'];
-                    return port ? `${address}:${port}` : address || '';
-                  })()
-                }}
+                {{ displayedTerminalServer }}
               </p>
             </Field>
           </template>

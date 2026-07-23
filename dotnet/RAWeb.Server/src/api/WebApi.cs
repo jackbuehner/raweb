@@ -38,6 +38,7 @@ public static class WebApi {
     SetAppSettingEndpoint.Map(app);
     GetWorkspaceEndpoint.Map(app);
     GetReconnectEndpoint.Map(app);
+    GetExternalWorkspaceDownloadEndpoint.Map(app);
     FindSecurityIdentifierEndpoint.Map(app);
     ListLocationsEndpoint.Map(app);
     ResolveSecurityIdentifiersEndpoint.Map(app);
@@ -168,6 +169,9 @@ public static class WebApi {
 [JsonSerializable(typeof(InjectFileItem))]
 [JsonSerializable(typeof(InjectFileItem[]))]
 [JsonSerializable(typeof(AuthTicketUserData))]
+[JsonSerializable(typeof(ExternalWorkspaceDownloadRequestBody))]
+[JsonSerializable(typeof(ExternalWorkspaceManifest))]
+[JsonSerializable(typeof(ExternalWorkspaceManifestResource))]
 
 // management resource types used by the resource-management API endpoints
 // (duplicated here because of casing differences compared to ManagementJsonContext)

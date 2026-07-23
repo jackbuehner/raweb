@@ -32,7 +32,7 @@
     ? workspaceData?.resources.filter((resource) => resourceTypes.includes(resource.type))
     : [];
   const allTerminalServers = Array.from(
-    new Set(resourcesOfType?.map((resource) => resource.hosts.map((host) => host.id)).flat())
+    new Set(resourcesOfType?.map((resource) => resource.hosts.map((host) => host.name)).flat())
   );
 </script>
 

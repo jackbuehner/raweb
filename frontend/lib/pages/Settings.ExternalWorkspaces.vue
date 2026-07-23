@@ -46,20 +46,30 @@
 
   const newWorkspaceName = ref('');
   const newWorkspaceUrl = ref('');
+  const newWorkspaceUsername = ref('');
+  const newWorkspacePassword = ref('');
   const addError = ref<string | null>(null);
 
   function resetAddForm() {
     newWorkspaceName.value = '';
     newWorkspaceUrl.value = '';
+    newWorkspaceUsername.value = '';
+    newWorkspacePassword.value = '';
     addError.value = null;
   }
 
   async function submitAddWorkspace(close: () => void) {
     const name = newWorkspaceName.value.trim();
     const endpoint = newWorkspaceUrl.value.trim();
+    const username = newWorkspaceUsername.value.trim();
+    const password = newWorkspacePassword.value;
 
     if (!name || !isUrl(endpoint, { requireTopLevelDomain: true })) {
       addError.value = t('settings.externalWorkspaces.manager.addDialog.invalidUrl');
+      return;
+    }
+    if (!username || !password) {
+      addError.value = t('settings.externalWorkspaces.manager.addDialog.credentialsRequired');
       return;
     }
 
@@ -67,7 +77,7 @@
       return;
     }
 
-    workspaceTokens.registerWorkspace(endpoint, name);
+    workspaceTokens.registerWorkspace(endpoint, name, username, password);
     refreshWorkspaces();
     close();
     resetAddForm();
@@ -152,6 +162,18 @@
                 type="url"
                 :placeholder="t('settings.externalWorkspaces.manager.addDialog.urlPlaceholder')"
               />
+            </Field>
+            <Field>
+              <TextBlock>{{ t('settings.externalWorkspaces.manager.addDialog.username') }}</TextBlock>
+              <TextBox
+                v-model:value="newWorkspaceUsername"
+                autocomplete="username"
+                :placeholder="t('settings.externalWorkspaces.manager.addDialog.usernamePlaceholder')"
+              />
+            </Field>
+            <Field>
+              <TextBlock>{{ t('settings.externalWorkspaces.manager.addDialog.password') }}</TextBlock>
+              <TextBox v-model:value="newWorkspacePassword" type="password" autocomplete="current-password" />
             </Field>
             <TextBlock v-if="addError" style="color: var(--wui-text-error)">{{ addError }}</TextBlock>
           </form>

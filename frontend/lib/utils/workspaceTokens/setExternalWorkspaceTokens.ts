@@ -3,7 +3,7 @@
  * The tokens are encrypted using AES-GCM with the provided encryption key.
  */
 export async function setExternalWorkspaceTokens(
-  tokens: { endpoint: string; token: string; name: string }[],
+  tokens: { endpoint: string; username: string; password: string; name: string }[],
   encryptionKey: string
 ): Promise<void> {
   const iv = crypto.getRandomValues(new Uint8Array(12));

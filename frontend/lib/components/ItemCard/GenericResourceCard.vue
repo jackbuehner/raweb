@@ -30,14 +30,16 @@
   });
 
   const icon = computed(() => {
-    const icons = resource.icons.filter((icon) => icon.type === 'png');
+    const icons = resource.icons
+      // ensure we get the largest size png icon
+      .filter((icon) => icon.type === 'png')
+      .sort((a, b) => {
+        const sizeA = a.dimensions?.split('x').map((s) => parseInt(s, 10));
+        const sizeB = b.dimensions?.split('x').map((s) => parseInt(s, 10));
+        return (sizeB?.[0] || 0) - (sizeA?.[0] || 0);
+      });
     if (icons.length > 0) {
-      const url = new URL(icons[0].url.href);
-      url.searchParams.set('format', 'png'); // ensure we get the highest quality png icon
-      if (theme.value === 'dark') {
-        url.searchParams.set('theme', 'dark');
-      }
-      return url.href;
+      return icons[0].url.href;
     }
   });
 

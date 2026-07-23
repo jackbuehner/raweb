@@ -1,6 +1,7 @@
 import { showConfirm } from '$dialogs';
 import { useCoreDataStore } from '$stores';
 import { inferUtfEncoding } from '$utils';
+import { BlobReader, BlobWriter, TextWriter, ZipReader } from '@zip.js/zip.js';
 import { t } from 'i18next';
 import { ManagedResourceSource } from './schemas/ResourceManagementSchemas.ts';
 
@@ -24,24 +25,156 @@ export async function getAppsAndDevices(
     throw new Error('Failed to fetch the feed.');
   }
 
-  const { resouceCollection, pubDate, schemaVersion } = getResourceCollection(feed);
-  const { publisher, name: publisherName, id: publisherId, lastUpdated } = getPublisher(resouceCollection);
-  const terminalServers = getTerminalServers(publisher, hidePortsWhenPossible);
-  const resources = await getResources(publisher, terminalServers, origin, 2.0, supportsCentralizedPublishing);
-  const folders = getFolders(resources);
+  return buildWorkspaceData(feed, origin, { hidePortsWhenPossible, supportsCentralizedPublishing });
+}
 
-  return {
-    publishedDate: pubDate,
-    schemaVersion,
-    publisher: {
-      name: publisherName,
-      id: publisherId,
-      lastUpdated,
-    },
-    terminalServers,
-    resources,
-    folders,
-  };
+/**
+ * Downloads the MS-TWSP webfeed (and every resource/icon file it references) for a registered
+ * external workspace, via this server's `/api/external-workspace/download` endpoint, which
+ * streams everything back as a single zip file.
+ *
+ * This proxy exists because a browser cannot perform Windows/NTLM authentication against an
+ * arbitrary cross-origin server on its own. Instead, the stored credentials for the workspace are
+ * sent to this server, which uses them to authenticate to the external workspace (via NTLM/
+ * Negotiate, if required) when fetching it on our behalf.
+ */
+export async function getExternalWorkspaceAppsAndDevices(
+  iisBase: string,
+  endpoint: string,
+  credentials: { username: string; password: string } | undefined,
+  { hidePortsWhenPossible = false }: { hidePortsWhenPossible?: boolean } = {}
+) {
+  const response = await fetch(`${iisBase}api/external-workspace/download`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: endpoint,
+      username: credentials?.username,
+      password: credentials?.password,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to download the external workspace (${response.status} ${response.statusText}).`);
+  }
+
+  // show download prompt for blob
+  const a = document.createElement('a');
+  const blob = await response.blob();
+  a.href = URL.createObjectURL(blob);
+  a.download = `external-workspace-${new Date().toISOString()}.zip`;
+  a.click();
+
+  const zipReader = new ZipReader(new BlobReader(blob));
+  try {
+    const entries = await zipReader.getEntries();
+    const entryByName = new Map(entries.map((entry) => [entry.filename, entry]));
+
+    const feedEntry = entryByName.get('feed.xml');
+    const manifestEntry = entryByName.get('manifest.json');
+    if (!feedEntry || feedEntry.directory || !manifestEntry || manifestEntry.directory) {
+      throw new Error('The downloaded workspace archive is missing required files.');
+    }
+
+    const feedText = await feedEntry.getData(new TextWriter());
+    const manifest = JSON.parse(await manifestEntry.getData(new TextWriter())) as {
+      origin: string;
+      resources: Record<string, { entry: string; contentType?: string }>;
+    };
+
+    // create blob URLs for every resource/icon file bundled in the zip, keyed by the
+    // original absolute URL, so getResources() can use them instead of fetching over the network
+    const resourceBlobUrls = new Map<string, string>();
+    for (const [originalUrl, { entry: entryName, contentType }] of Object.entries(manifest.resources)) {
+      const resourceEntry = entryByName.get(entryName);
+      if (!resourceEntry || resourceEntry.directory) {
+        continue;
+      }
+      const blob = await resourceEntry.getData(new BlobWriter(contentType || undefined));
+      // append the zip entry name as a URL fragment (ignored when the blob is actually
+      // loaded/fetched) purely so the blob URL is traceable back to its entry in the zip
+      const blobUrl = `${URL.createObjectURL(blob)}#${entryName}`;
+      resourceBlobUrls.set(originalUrl, blobUrl);
+      console.debug(`[external-workspace] ${entryName} -> ${originalUrl} -> ${blobUrl}`);
+    }
+
+    const parser = new DOMParser();
+    const feed = parser.parseFromString(feedText, 'application/xml');
+
+    return buildWorkspaceData(feed, manifest.origin, {
+      hidePortsWhenPossible,
+      supportsCentralizedPublishing: false,
+      resolveResourceUrl: (url) => resourceBlobUrls.get(url) ?? url,
+      idNamespace: `ext:${endpoint}:`,
+    });
+  } finally {
+    await zipReader.close();
+  }
+}
+
+function buildWorkspaceData(
+  feed: Document,
+  origin: string,
+  {
+    hidePortsWhenPossible = false,
+    supportsCentralizedPublishing = false,
+    resolveResourceUrl,
+    idNamespace,
+  }: {
+    hidePortsWhenPossible?: boolean;
+    supportsCentralizedPublishing?: boolean;
+    /** Rewrites an absolute resource/icon URL, e.g. to a local blob URL for external workspaces. */
+    resolveResourceUrl?: (url: string) => string;
+    /**
+     * When provided, prefixes every terminal server ID and resource/host ID with this string.
+     * Used to keep IDs from a registered external workspace from colliding with the local
+     * workspace's IDs (or another external workspace's IDs) once everything is merged together.
+     */
+    idNamespace?: string;
+  } = {}
+) {
+  return (async () => {
+    const { resouceCollection, pubDate, schemaVersion } = getResourceCollection(feed);
+    const { publisher, name: publisherName, id: publisherId, lastUpdated } = getPublisher(resouceCollection);
+    let terminalServers = getTerminalServers(publisher, hidePortsWhenPossible);
+    let resources = await getResources(
+      publisher,
+      terminalServers,
+      origin,
+      2.0,
+      supportsCentralizedPublishing,
+      resolveResourceUrl
+    );
+
+    if (idNamespace) {
+      terminalServers = new Map(
+        Array.from(terminalServers.entries()).map(([id, name]) => [idNamespace + id, name])
+      );
+      resources = resources.map((resource) => ({
+        ...resource,
+        id: idNamespace + resource.id,
+        hosts: resource.hosts.map((host) => ({ ...host, id: idNamespace + host.id })),
+        source: {
+          source: UnmanagedResourceSource.ExternalWorkspace,
+        },
+      }));
+    }
+
+    const folders = getFolders(resources);
+
+    return {
+      publishedDate: pubDate,
+      schemaVersion,
+      publisher: {
+        name: publisherName,
+        id: publisherId,
+        lastUpdated,
+      },
+      terminalServers,
+      resources,
+      folders,
+    };
+  })();
 }
 
 /**
@@ -153,6 +286,7 @@ function getTerminalServers(publisher: Element, hidePortsWhenPossible = false) {
 export enum UnmanagedResourceSource {
   UnmanagedFile = 90,
   UnmanagedMultiuserFile = 91,
+  ExternalWorkspace = 92,
 }
 
 interface Resource {
@@ -208,7 +342,9 @@ async function getResources(
   terminalServers: ReturnType<typeof getTerminalServers>,
   origin: string,
   version: TSWPVersion = 2.1,
-  supportsCentralizedPublishing: boolean = false
+  supportsCentralizedPublishing: boolean = false,
+  /** Rewrites an absolute resource/icon URL, e.g. to a local blob URL for external workspaces. */
+  resolveResourceUrl?: (url: string) => string
 ) {
   const resources = publisher.querySelectorAll('Resources > Resource');
   if (!resources) {
@@ -278,7 +414,8 @@ async function getResources(
       }
       let url: URL;
       try {
-        url = new URL(urlAttr, origin);
+        const absoluteHref = new URL(urlAttr, origin).href;
+        url = new URL(resolveResourceUrl ? resolveResourceUrl(absoluteHref) : absoluteHref);
       } catch {
         continue;
       }
@@ -373,7 +510,8 @@ async function getResources(
       }
       let url: URL;
       try {
-        url = new URL(urlAttr, origin);
+        const absoluteHref = new URL(urlAttr, origin).href;
+        url = new URL(resolveResourceUrl ? resolveResourceUrl(absoluteHref) : absoluteHref);
       } catch {
         continue;
       }
@@ -389,6 +527,12 @@ async function getResources(
       }
 
       if (!('serviceWorker' in navigator)) {
+        return;
+      }
+
+      // blob URLs (used for external workspace icons) are opaque local references;
+      // there's nothing meaningful to precache and query-param variants don't apply
+      if (icon.url.protocol === 'blob:') {
         return;
       }
 

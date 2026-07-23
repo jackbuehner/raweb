@@ -3,7 +3,7 @@ import { getExternalWorkspaceTokens } from './getExternalWorkspaceTokens';
 import { setExternalWorkspaceTokens } from './setExternalWorkspaceTokens';
 
 export class ExternalWorkspaceTokens {
-  #workspaces = new Map<string, { token: string; name: string }>();
+  #workspaces = new Map<string, { username: string; password: string; name: string }>();
   #hasBeenInitialized = false;
   #_decryptionKey: string | undefined = undefined;
 
@@ -33,8 +33,8 @@ export class ExternalWorkspaceTokens {
       throw new Error('Failed to decrypt external workspace tokens');
     }
 
-    decryptedTokens.forEach(({ endpoint, token, name }) => {
-      this.#workspaces.set(endpoint, { token, name });
+    decryptedTokens.forEach(({ endpoint, username, password, name }) => {
+      this.#workspaces.set(endpoint, { username, password, name });
     });
 
     this.#hasBeenInitialized = true;
@@ -79,11 +79,14 @@ export class ExternalWorkspaceTokens {
       throw new Error('ExternalWorkspaceTokens has not been initialized. Call decryptPersistedTokens() first.');
     }
 
-    const tokensArray = Array.from(this.#workspaces.entries()).map(([endpoint, { token, name }]) => ({
-      endpoint,
-      token,
-      name,
-    }));
+    const tokensArray = Array.from(this.#workspaces.entries()).map(
+      ([endpoint, { username, password, name }]) => ({
+        endpoint,
+        username,
+        password,
+        name,
+      })
+    );
     const encryptionKey = this.#_decryptionKey;
 
     if (!encryptionKey) {
@@ -99,17 +102,28 @@ export class ExternalWorkspaceTokens {
     }
   }
 
-  getToken(endpoint: string): string | undefined {
+  /**
+   * Returns the stored Windows/NTLM credentials for an external workspace, if any.
+   */
+  getCredentials(endpoint: string): { username: string; password: string } | undefined {
     this.#assertInitialized();
 
-    return this.#workspaces.get(endpoint)?.token;
+    const workspace = this.#workspaces.get(endpoint);
+    if (!workspace) {
+      return undefined;
+    }
+
+    return { username: workspace.username, password: workspace.password };
   }
 
-  setToken(endpoint: string, token: string): void {
+  /**
+   * Sets the Windows/NTLM credentials to use for an external workspace.
+   */
+  setCredentials(endpoint: string, username: string, password: string): void {
     this.#assertInitialized();
 
     const existing = this.#workspaces.get(endpoint);
-    this.#workspaces.set(endpoint, { token, name: existing?.name ?? '' });
+    this.#workspaces.set(endpoint, { username, password, name: existing?.name ?? '' });
     this.#persistTokens();
   }
 
@@ -123,19 +137,18 @@ export class ExternalWorkspaceTokens {
   }
 
   /**
-   * Registers a new external workspace, or renames an existing one if the endpoint
-   * is already registered. Does not affect the stored auth token for the endpoint.
+   * Registers a new external workspace (with its Windows/NTLM credentials), or updates an
+   * existing one if the endpoint is already registered.
    */
-  registerWorkspace(endpoint: string, name: string): void {
+  registerWorkspace(endpoint: string, name: string, username: string, password: string): void {
     this.#assertInitialized();
 
-    const existing = this.#workspaces.get(endpoint);
-    this.#workspaces.set(endpoint, { token: existing?.token ?? '', name });
+    this.#workspaces.set(endpoint, { username, password, name });
     this.#persistTokens();
   }
 
   /**
-   * Removes an external workspace registration, along with any stored auth token for it.
+   * Removes an external workspace registration, along with its stored credentials.
    */
   unregisterWorkspace(endpoint: string): void {
     this.#assertInitialized();

@@ -125,6 +125,10 @@
           "url": "Feed URL",
           "urlPlaceholder": "https://contoso.example.com/RDWeb/Feed/webfeed.aspx",
           "invalidUrl": "Enter a valid feed URL.",
+          "username": "Username",
+          "usernamePlaceholder": "DOMAIN\\username",
+          "password": "Password",
+          "credentialsRequired": "Enter a username and password.",
           "save": "Add"
         },
         "downloadConnectionFile": "Download connection file",

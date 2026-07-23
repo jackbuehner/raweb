@@ -15,12 +15,26 @@
     width?: string;
   }>();
 
-  const { terminalServerAliases } = useCoreDataStore();
+  const { terminalServerAliases, iisBase } = useCoreDataStore();
   const { t } = useTranslation();
 
   const wallpaper = computed(() => {
-    const icons = resource.icons.filter((icon) => icon.type === 'png');
+    const icons = resource.icons
+      // ensure we get the largest size png icon
+      .filter((icon) => icon.type === 'png')
+      .sort((a, b) => {
+        const sizeA = a.dimensions?.split('x').map((s) => parseInt(s, 10));
+        const sizeB = b.dimensions?.split('x').map((s) => parseInt(s, 10));
+        return (sizeB?.[0] || 0) - (sizeA?.[0] || 0);
+      });
     if (icons.length > 0) {
+      if (icons[0].url.protocol === 'blob:') {
+        return {
+          light: `url('${iisBase}api/resources/image/defaultwallpaper?format=png')`,
+          dark: `url('${iisBase}api/resources/image/defaultwallpaper?format=png&theme=dark')`,
+        };
+      }
+
       const url = new URL(icons[0].url.href);
       url.searchParams.set('format', 'png'); // ensure we get the highest quality png icon
       url.searchParams.delete('frame'); // do not surround the wallpaper with a frame

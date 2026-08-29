@@ -1,0 +1,1 @@
+import{ut as e}from"./shared-CRKNHLrv.js";export{e as RouterLink};

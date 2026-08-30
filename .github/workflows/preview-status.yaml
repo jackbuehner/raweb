@@ -37,19 +37,21 @@ jobs:
   update-comment:
     name: Update preview status comment
     runs-on: ubuntu-latest
-    # ignore the "completed" reaction for a run that ended up with no real result to report:
-    # - "skipped": a same-repo pull_request run that preview-frontend.yaml/preview-backend.yaml
-    #   skipped in favor of the equivalent push run (see the note above) - otherwise this skipped,
-    #   resultless run would overwrite the real status the push run's own "completed" reaction
-    #   just wrote (or would write later).
+    # ignore reactions for a run that has (or will have) no real result to report:
+    # - a same-repo pull_request run is entirely skipped by preview-frontend.yaml/preview-
+    #   backend.yaml in favor of the equivalent push run (see the note above). This is knowable
+    #   in advance - same-repo + pull_request always means it will be skipped - so even its
+    #   "requested" reaction is ignored, rather than flipping the row to "Building..." for a job
+    #   that was never going to run; the row just stays whatever it already showed. Its
+    #   "completed" reaction (conclusion "skipped") is ignored for the same reason.
     # - "cancelled": GitHub auto-cancels an older in-progress run for the same workflow+branch when
     #   a newer commit is pushed before it finishes - without this, that stale run's "completed"
-    #   event can land after the real run's, overwriting good status/logs with a dead run's.
-    # The "requested" reaction for either case is harmless (it only writes "Building...", which a
-    # subsequent real run's events promptly supersede).
+    #   event can land after the real run's, overwriting good status/logs with a dead run's. This
+    #   is only knowable once it happens, so only its "completed" reaction is ignored.
     if: >-
       (github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'push') &&
-      !(github.event.action == 'completed' && contains(fromJson('["skipped", "cancelled"]'), github.event.workflow_run.conclusion))
+      !(github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name == github.repository) &&
+      !(github.event.action == 'completed' && github.event.workflow_run.conclusion == 'cancelled')
 
     steps:
       - name: Resolve pull request number

@@ -111,7 +111,7 @@ export default {
   Your options:
 </p>
 <ul>
-  <li>ait for a workflow run to finish and try again.</li>
+  <li>Wait for a workflow run to finish and try again.</li>
   <li>Install directly from this branch's source.</li>
 </ul>
 

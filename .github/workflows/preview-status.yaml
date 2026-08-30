@@ -1,0 +1,335 @@
+name: Preview Status
+
+# This workflow never checks out or executes PR-authored code. It only reacts to the completion
+# (or start) of preview-frontend.yaml / preview-backend.yaml runs, which is why it is safe to run
+# with a privileged, secret-bearing token for ANY pull request, including ones from untrusted
+# forks - unlike pull_request_target, nothing here ever builds/runs code the PR author controls.
+
+on:
+  workflow_run:
+    workflows: ["Preview Frontend", "Preview Backend"]
+    types: [requested, completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+# serialize (never cancel) updates for the same PR branch, since the frontend and backend
+# workflows both read-modify-write the same comment and would otherwise race each other -
+# head_repository+head_branch is used instead of head_sha so this also serializes across pushes,
+# and instead of pull_requests[0].number, which GitHub leaves empty for fork-originated PRs
+concurrency:
+  group: preview-status-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  update-comment:
+    name: Update preview status comment
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'pull_request'
+
+    steps:
+      - name: Checkout repository (for gh-pages push only, base branch)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve pull request number
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          number="${{ github.event.workflow_run.pull_requests[0].number }}"
+
+          if [ -z "$number" ]; then
+            # workflow_run does not auto-associate pull_requests for forks - look it up instead
+            number=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/pulls" \
+              --jq '.[0].number')
+          fi
+
+          if [ -z "$number" ] || [ "$number" = "null" ]; then
+            echo "Could not resolve a pull request for this workflow_run; skipping."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Determine component and context
+        if: steps.pr.outputs.found == 'true'
+        id: context
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.name }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ "$WORKFLOW_NAME" = "Preview Backend" ]; then
+            echo "component=server" >> "$GITHUB_OUTPUT"
+          else
+            echo "component=webapp" >> "$GITHUB_OUTPUT"
+          fi
+
+          trusted="false"
+          if [ "$HEAD_OWNER" = "kimmknight" ] || [ "$HEAD_OWNER" = "jackbuehner" ]; then
+            trusted="true"
+          fi
+
+          echo "trusted=$trusted" >> "$GITHUB_OUTPUT"
+          echo "head_owner=$HEAD_OWNER" >> "$GITHUB_OUTPUT"
+          echo "head_repo=$HEAD_REPO" >> "$GITHUB_OUTPUT"
+          echo "head_branch=$HEAD_BRANCH" >> "$GITHUB_OUTPUT"
+
+      # only meaningful for the webapp component on completion - downloads the dist artifact
+      # produced by preview-frontend.yaml so it can be published to gh-pages (already-built
+      # static output only; no PR code is ever executed here)
+      - name: Download frontend dist artifact
+        if: >-
+          steps.pr.outputs.found == 'true' &&
+          github.event.action == 'completed' &&
+          steps.context.outputs.component == 'webapp' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          steps.context.outputs.trusted == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: frontend-dist
+          path: frontend-dist
+
+      - name: Publish deploy preview to gh-pages
+        id: publish
+        if: >-
+          steps.pr.outputs.found == 'true' &&
+          github.event.action == 'completed' &&
+          steps.context.outputs.component == 'webapp' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          steps.context.outputs.trusted == 'true'
+        run: |
+          target="pr-${{ steps.pr.outputs.number }}"
+
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          set +e
+          git fetch origin gh-pages
+          fetch_status=$?
+          set -e
+
+          if [ $fetch_status -ne 0 ]; then
+            git checkout --orphan gh-pages
+          else
+            git checkout gh-pages
+          fi
+
+          rm -rf "deploy-preview/${target}"
+          mkdir -p "deploy-preview/${target}"
+          cp -r frontend-dist/* "deploy-preview/${target}/"
+          git add "deploy-preview/${target}"
+          git commit -m "chore: update deploy preview for ${target}" || echo "No changes"
+          git push origin gh-pages
+
+          echo "deploy_url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/deploy-preview/${target}/" >> "$GITHUB_OUTPUT"
+
+      # for non-trusted forks, we never build/publish anything ourselves - we only check whether
+      # the contributor already has their own GitHub Pages site (built independently by their own
+      # push-triggered run in their own fork)
+      - name: Check fork's own GitHub Pages status
+        id: fork_pages
+        if: >-
+          steps.pr.outputs.found == 'true' &&
+          github.event.action == 'completed' &&
+          steps.context.outputs.component == 'webapp' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          steps.context.outputs.trusted == 'false'
+        run: |
+          owner="${{ steps.context.outputs.head_owner }}"
+          repo="${{ steps.context.outputs.head_repo }}"
+
+          status=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/${owner}/${repo}/pages")
+
+          if [ "$status" = "200" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "url=https://${owner}.github.io/${repo}/" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update status comment
+        if: steps.pr.outputs.found == 'true'
+        uses: actions/github-script@v8
+        env:
+          EVENT_ACTION: ${{ github.event.action }}
+          COMPONENT: ${{ steps.context.outputs.component }}
+          TRUSTED: ${{ steps.context.outputs.trusted }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          HEAD_OWNER: ${{ steps.context.outputs.head_owner }}
+          HEAD_BRANCH: ${{ steps.context.outputs.head_branch }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          DEPLOY_URL: ${{ steps.publish.outputs.deploy_url }}
+          FORK_PAGES_ENABLED: ${{ steps.fork_pages.outputs.enabled }}
+          FORK_PAGES_URL: ${{ steps.fork_pages.outputs.url }}
+          DOCS_URL: https://raweb.app/docs/pr-previews/
+        with:
+          script: |
+            const prNumber = ${{ steps.pr.outputs.number }};
+            const marker = "<!-- DEPLOY-PREVIEW-COMMENT -->";
+            const {
+              EVENT_ACTION, COMPONENT, TRUSTED, CONCLUSION,
+              HEAD_OWNER, HEAD_BRANCH, RUN_URL, DEPLOY_URL,
+              FORK_PAGES_ENABLED, FORK_PAGES_URL, DOCS_URL,
+            } = process.env;
+            const trusted = TRUSTED === "true";
+
+            const btn = (label, href, disabled) => {
+              const base = disabled ? `${label}-disabled` : label;
+              const style = disabled ? ' style="pointer-events:none;"' : "";
+              return `<a href="${href}" rel="nofollow"${style}>` +
+                `<picture>` +
+                `<source media="(prefers-color-scheme: dark)" srcset="https://install.raweb.app/buttons/${base}-dark.svg">` +
+                `<source media="(prefers-color-scheme: light)" srcset="https://install.raweb.app/buttons/${base}-light.svg">` +
+                `<img src="https://install.raweb.app/buttons/${base}-light.svg" alt="${label}" height="32">` +
+                `</picture></a>`;
+            };
+
+            function serverSection() {
+              if (!trusted) {
+                return {
+                  status: "Not available for builds from outside contributors",
+                  button: "",
+                };
+              }
+
+              const installUrl = `https://install.raweb.app/preview/${HEAD_OWNER}/${HEAD_BRANCH}`;
+
+              if (EVENT_ACTION === "requested") {
+                return {
+                  status: "Building...",
+                  button: btn("install-this-developer-build-from-source", `${installUrl}?source=force`, false),
+                };
+              }
+
+              if (CONCLUSION === "success") {
+                return {
+                  status: "Ready",
+                  button: btn("install-this-developer-build", installUrl, false),
+                };
+              }
+
+              return {
+                status: "Build failed - you can still install from source",
+                button: btn("install-this-developer-build-from-source", `${installUrl}?source=force`, false),
+              };
+            }
+
+            function webappSection() {
+              if (EVENT_ACTION === "requested") {
+                return {
+                  status: "Building...",
+                  button: btn("view-preview-in-browser", "#", true),
+                };
+              }
+
+              if (CONCLUSION !== "success") {
+                return {
+                  status: "Build failed",
+                  button: btn("view-preview-in-browser", "#", true),
+                };
+              }
+
+              if (trusted) {
+                return {
+                  status: "Ready",
+                  button: btn("view-preview-in-browser", DEPLOY_URL, false),
+                };
+              }
+
+              if (FORK_PAGES_ENABLED === "true") {
+                return {
+                  status: "Ready (hosted on your fork's own GitHub Pages)",
+                  button: btn("view-preview-in-browser", FORK_PAGES_URL, false),
+                };
+              }
+
+              return {
+                status: `Error: GitHub Pages is not enabled on your fork. [Instructions](${DOCS_URL})`,
+                button: btn("view-preview-in-browser", "#", true),
+              };
+            }
+
+            function renderBody({ server, webapp }) {
+              return `${marker}
+            <div width="100%">
+            <table width="100%">
+              <thead>
+                <tr>
+                  <th align="left">Status</th>
+                  <th align="right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    RAWeb (server): <!--STATUS:SERVER-->${server.status}<!--/STATUS:SERVER--><br>
+                    RemoteApps &amp; Devices (web app): <!--STATUS:WEBAPP-->${webapp.status}<!--/STATUS:WEBAPP-->
+                  </td>
+                  <td align="right">
+                    <!--BUTTON:SERVER-->${server.button}<!--/BUTTON:SERVER-->
+                    <!--BUTTON:WEBAPP-->${webapp.button}<!--/BUTTON:WEBAPP-->
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            </div>
+
+            [View logs](${RUN_URL})
+            `;
+            }
+
+            function extract(body, tag, fallback) {
+              const re = new RegExp(`<!--${tag}-->([\\s\\S]*?)<!--/${tag}-->`);
+              const match = body && body.match(re);
+              return match ? match[1] : fallback;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            const defaults = {
+              server: { status: "Building...", button: "" },
+              webapp: { status: "Building...", button: "" },
+            };
+            if (existing) {
+              defaults.server.status = extract(existing.body, "STATUS:SERVER", defaults.server.status);
+              defaults.server.button = extract(existing.body, "BUTTON:SERVER", defaults.server.button);
+              defaults.webapp.status = extract(existing.body, "STATUS:WEBAPP", defaults.webapp.status);
+              defaults.webapp.button = extract(existing.body, "BUTTON:WEBAPP", defaults.webapp.button);
+            }
+
+            const sections = { ...defaults };
+            sections[COMPONENT] = COMPONENT === "server" ? serverSection() : webappSection();
+
+            const body = renderBody(sections);
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }

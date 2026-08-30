@@ -71,7 +71,9 @@ export default {
 			const owner = pathParts[1];
 			const branch = pathParts[2];
 
-			const shouldSkipArtifactCheck = ['false', '0'].includes(url.searchParams.get('artifact')?.toLowerCase() ?? 'true');
+			const shouldSkipArtifactCheck =
+				['false', '0'].includes(url.searchParams.get('artifact')?.toLowerCase() ?? 'true') ||
+				url.searchParams.get('source')?.toLowerCase() === 'force';
 
 			const artifactsOrErrorResponse = shouldSkipArtifactCheck
 				? { build: null, installer: null }
@@ -489,7 +491,7 @@ async function getArtifactDownloadUrls(
 		return { build: null, installer: null };
 	}
 
-	const previewRuns = apiData.workflow_runs.filter((run) => run.path === '.github/workflows/public.yaml');
+	const previewRuns = apiData.workflow_runs.filter((run) => run.path === '.github/workflows/preview-backend.yaml');
 
 	if (previewRuns[0].status !== 'completed') {
 		throw new Error('The most recent workflow run is not yet complete. Please try again later.');

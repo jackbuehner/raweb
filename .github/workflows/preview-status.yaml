@@ -4,6 +4,12 @@ name: Preview Status
 # (or start) of preview-frontend.yaml / preview-backend.yaml runs, which is why it is safe to run
 # with a privileged, secret-bearing token for ANY pull request, including ones from untrusted
 # forks - unlike pull_request_target, nothing here ever builds/runs code the PR author controls.
+#
+# It reacts to both pull_request- and push-triggered runs of those workflows: a pull_request from
+# a branch in this repo is skipped by preview-frontend.yaml/preview-backend.yaml (redundant with
+# the push event for the same commit), so for same-repo PRs this workflow has to pick the build
+# results up from that push-triggered run instead. Fork PRs have no equivalent push event in this
+# repo, so they always arrive here as pull_request-triggered runs.
 
 on:
   workflow_run:
@@ -27,7 +33,14 @@ jobs:
   update-comment:
     name: Update preview status comment
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.event == 'pull_request'
+    # ignore the "completed" reaction for a same-repo pull_request run that got skipped by
+    # preview-frontend.yaml/preview-backend.yaml in favor of the equivalent push run (see the note
+    # above) - otherwise this skipped, resultless run would overwrite the real status the push
+    # run's own "completed" reaction just wrote. The "requested" reaction for it is harmless (it
+    # only writes "Building...", which the push run's own events promptly supersede).
+    if: >-
+      (github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'push') &&
+      !(github.event.action == 'completed' && github.event.workflow_run.conclusion == 'skipped')
 
     steps:
       - name: Checkout repository (for gh-pages push only, base branch)
@@ -44,9 +57,13 @@ jobs:
           number="${{ github.event.workflow_run.pull_requests[0].number }}"
 
           if [ -z "$number" ]; then
-            # workflow_run does not auto-associate pull_requests for forks - look it up instead
+            # workflow_run does not auto-associate pull_requests for forks, or for any push event
+            # (push events never have PRs attached) - look up the OPEN PR for this commit instead.
+            # Filtering to open is required here: an ordinary push to master is normally associated
+            # with whatever PR historically introduced that commit once it's merged/closed, and we
+            # must not resurrect a status comment on an already-closed PR.
             number=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/pulls" \
-              --jq '.[0].number')
+              --jq '[.[] | select(.state == "open")][0].number')
           fi
 
           if [ -z "$number" ] || [ "$number" = "null" ]; then
@@ -58,7 +75,7 @@ jobs:
           echo "found=true" >> "$GITHUB_OUTPUT"
           echo "number=$number" >> "$GITHUB_OUTPUT"
 
-      - name: Determine component and context
+      - name: Determine context
         if: steps.pr.outputs.found == 'true'
         id: context
         env:
@@ -67,10 +84,14 @@ jobs:
           HEAD_REPO: ${{ github.event.workflow_run.head_repository.name }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
+          # Preview Backend covers two independent rows (server, desktop app) sourced from two of
+          # its jobs; Preview Frontend covers one row (web app) sourced from its single job/run
           if [ "$WORKFLOW_NAME" = "Preview Backend" ]; then
-            echo "component=server" >> "$GITHUB_OUTPUT"
+            echo "is_backend=true" >> "$GITHUB_OUTPUT"
+            echo "is_frontend=false" >> "$GITHUB_OUTPUT"
           else
-            echo "component=webapp" >> "$GITHUB_OUTPUT"
+            echo "is_backend=false" >> "$GITHUB_OUTPUT"
+            echo "is_frontend=true" >> "$GITHUB_OUTPUT"
           fi
 
           trusted="false"
@@ -83,14 +104,33 @@ jobs:
           echo "head_repo=$HEAD_REPO" >> "$GITHUB_OUTPUT"
           echo "head_branch=$HEAD_BRANCH" >> "$GITHUB_OUTPUT"
 
-      # only meaningful for the webapp component on completion - downloads the dist artifact
-      # produced by preview-frontend.yaml so it can be published to gh-pages (already-built
-      # static output only; no PR code is ever executed here)
+      # Preview Backend's overall run conclusion can't tell "server" and "desktop app" apart (e.g.
+      # one can fail while the other succeeds), so their individual job conclusions are needed
+      - name: Determine backend job conclusions
+        if: >-
+          steps.pr.outputs.found == 'true' &&
+          github.event.action == 'completed' &&
+          steps.context.outputs.is_backend == 'true'
+        id: backend_jobs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jobs=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" --jq '.jobs')
+
+          server=$(echo "$jobs" | jq -r '.[] | select(.name == "Build server (backend)") | .conclusion')
+          desktop=$(echo "$jobs" | jq -r '.[] | select(.name == "Build desktop app (Windows)") | .conclusion')
+
+          echo "server_conclusion=${server:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "desktop_conclusion=${desktop:-unknown}" >> "$GITHUB_OUTPUT"
+
+      # only meaningful for the web app row on completion - downloads the dist artifact produced
+      # by preview-frontend.yaml so it can be published to gh-pages (already-built static output
+      # only; no PR code is ever executed here)
       - name: Download frontend dist artifact
         if: >-
           steps.pr.outputs.found == 'true' &&
           github.event.action == 'completed' &&
-          steps.context.outputs.component == 'webapp' &&
+          steps.context.outputs.is_frontend == 'true' &&
           github.event.workflow_run.conclusion == 'success' &&
           steps.context.outputs.trusted == 'true'
         uses: actions/download-artifact@v8
@@ -105,7 +145,7 @@ jobs:
         if: >-
           steps.pr.outputs.found == 'true' &&
           github.event.action == 'completed' &&
-          steps.context.outputs.component == 'webapp' &&
+          steps.context.outputs.is_frontend == 'true' &&
           github.event.workflow_run.conclusion == 'success' &&
           steps.context.outputs.trusted == 'true'
         run: |
@@ -142,7 +182,7 @@ jobs:
         if: >-
           steps.pr.outputs.found == 'true' &&
           github.event.action == 'completed' &&
-          steps.context.outputs.component == 'webapp' &&
+          steps.context.outputs.is_frontend == 'true' &&
           github.event.workflow_run.conclusion == 'success' &&
           steps.context.outputs.trusted == 'false'
         run: |
@@ -163,9 +203,12 @@ jobs:
         uses: actions/github-script@v8
         env:
           EVENT_ACTION: ${{ github.event.action }}
-          COMPONENT: ${{ steps.context.outputs.component }}
+          IS_BACKEND: ${{ steps.context.outputs.is_backend }}
+          IS_FRONTEND: ${{ steps.context.outputs.is_frontend }}
           TRUSTED: ${{ steps.context.outputs.trusted }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          SERVER_CONCLUSION: ${{ steps.backend_jobs.outputs.server_conclusion }}
+          DESKTOP_CONCLUSION: ${{ steps.backend_jobs.outputs.desktop_conclusion }}
           HEAD_OWNER: ${{ steps.context.outputs.head_owner }}
           HEAD_BRANCH: ${{ steps.context.outputs.head_branch }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
@@ -178,7 +221,8 @@ jobs:
             const prNumber = ${{ steps.pr.outputs.number }};
             const marker = "<!-- DEPLOY-PREVIEW-COMMENT -->";
             const {
-              EVENT_ACTION, COMPONENT, TRUSTED, CONCLUSION,
+              EVENT_ACTION, IS_BACKEND, IS_FRONTEND, TRUSTED, CONCLUSION,
+              SERVER_CONCLUSION, DESKTOP_CONCLUSION,
               HEAD_OWNER, HEAD_BRANCH, RUN_URL, DEPLOY_URL,
               FORK_PAGES_ENABLED, FORK_PAGES_URL, DOCS_URL,
             } = process.env;
@@ -194,6 +238,8 @@ jobs:
                 `<img src="https://install.raweb.app/buttons/${base}-light.svg" alt="${label}" height="32">` +
                 `</picture></a>`;
             };
+
+            const logsLink = (url) => (url ? `<a href="${url}">View logs</a>` : "");
 
             function serverSection() {
               if (!trusted) {
@@ -212,7 +258,7 @@ jobs:
                 };
               }
 
-              if (CONCLUSION === "success") {
+              if (SERVER_CONCLUSION === "success") {
                 return {
                   status: "Ready",
                   button: btn("install-this-developer-build", installUrl, false),
@@ -223,6 +269,18 @@ jobs:
                 status: "Build failed - you can still install from source",
                 button: btn("install-this-developer-build-from-source", `${installUrl}?source=force`, false),
               };
+            }
+
+            function desktopSection() {
+              if (EVENT_ACTION === "requested") {
+                return { status: "Building...", button: "" };
+              }
+
+              if (DESKTOP_CONCLUSION === "success") {
+                return { status: "Ready", button: "" };
+              }
+
+              return { status: "Build failed", button: "" };
             }
 
             function webappSection() {
@@ -260,32 +318,45 @@ jobs:
               };
             }
 
-            function renderBody({ server, webapp }) {
+            function renderBody({ server, webapp, desktop }) {
               return `${marker}
             <div width="100%">
             <table width="100%">
               <thead>
                 <tr>
+                  <th align="left"></th>
                   <th align="left">Status</th>
                   <th align="right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>
-                    RAWeb (server): <!--STATUS:SERVER-->${server.status}<!--/STATUS:SERVER--><br>
-                    RemoteApps &amp; Devices (web app): <!--STATUS:WEBAPP-->${webapp.status}<!--/STATUS:WEBAPP-->
-                  </td>
+                  <td>RAWeb (server)</td>
+                  <td><!--STATUS:SERVER-->${server.status}<!--/STATUS:SERVER--></td>
                   <td align="right">
                     <!--BUTTON:SERVER-->${server.button}<!--/BUTTON:SERVER-->
+                    <!--LOGS:SERVER-->${server.logs}<!--/LOGS:SERVER-->
+                  </td>
+                </tr>
+                <tr>
+                  <td>RemoteApps &amp; Devices (web app)</td>
+                  <td><!--STATUS:WEBAPP-->${webapp.status}<!--/STATUS:WEBAPP--></td>
+                  <td align="right">
                     <!--BUTTON:WEBAPP-->${webapp.button}<!--/BUTTON:WEBAPP-->
+                    <!--LOGS:WEBAPP-->${webapp.logs}<!--/LOGS:WEBAPP-->
+                  </td>
+                </tr>
+                <tr>
+                  <td>RemoteApps &amp; Devices (desktop app)</td>
+                  <td><!--STATUS:DESKTOP-->${desktop.status}<!--/STATUS:DESKTOP--></td>
+                  <td align="right">
+                    <!--BUTTON:DESKTOP-->${desktop.button}<!--/BUTTON:DESKTOP-->
+                    <!--LOGS:DESKTOP-->${desktop.logs}<!--/LOGS:DESKTOP-->
                   </td>
                 </tr>
               </tbody>
             </table>
             </div>
-
-            [View logs](${RUN_URL})
             `;
             }
 
@@ -303,18 +374,29 @@ jobs:
             const existing = comments.find((c) => c.body && c.body.includes(marker));
 
             const defaults = {
-              server: { status: "Building...", button: "" },
-              webapp: { status: "Building...", button: "" },
+              server: { status: "Building...", button: "", logs: "" },
+              webapp: { status: "Building...", button: "", logs: "" },
+              desktop: { status: "Building...", button: "", logs: "" },
             };
             if (existing) {
               defaults.server.status = extract(existing.body, "STATUS:SERVER", defaults.server.status);
               defaults.server.button = extract(existing.body, "BUTTON:SERVER", defaults.server.button);
+              defaults.server.logs = extract(existing.body, "LOGS:SERVER", defaults.server.logs);
               defaults.webapp.status = extract(existing.body, "STATUS:WEBAPP", defaults.webapp.status);
               defaults.webapp.button = extract(existing.body, "BUTTON:WEBAPP", defaults.webapp.button);
+              defaults.webapp.logs = extract(existing.body, "LOGS:WEBAPP", defaults.webapp.logs);
+              defaults.desktop.status = extract(existing.body, "STATUS:DESKTOP", defaults.desktop.status);
+              defaults.desktop.button = extract(existing.body, "BUTTON:DESKTOP", defaults.desktop.button);
+              defaults.desktop.logs = extract(existing.body, "LOGS:DESKTOP", defaults.desktop.logs);
             }
 
             const sections = { ...defaults };
-            sections[COMPONENT] = COMPONENT === "server" ? serverSection() : webappSection();
+            if (IS_BACKEND === "true") {
+              sections.server = { ...serverSection(), logs: logsLink(RUN_URL) };
+              sections.desktop = { ...desktopSection(), logs: logsLink(RUN_URL) };
+            } else if (IS_FRONTEND === "true") {
+              sections.webapp = { ...webappSection(), logs: logsLink(RUN_URL) };
+            }
 
             const body = renderBody(sections);
 

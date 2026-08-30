@@ -21,16 +21,16 @@ permissions:
   pull-requests: write
   actions: read
 
-# serialize (never cancel) updates for the same PR branch, since concurrent runs read-modify-write
-# the same comment and would otherwise race each other - head_repository+head_branch is used
-# instead of head_sha so this also serializes across pushes, and instead of pull_requests[0].number,
-# which GitHub leaves empty for fork-originated PRs. The workflow name is included too: GitHub only
-# keeps ONE pending run per concurrency group and cancels an older pending one outright when a new
-# run wants the same slot, so without this, Preview Frontend's and Preview Backend's near-
-# simultaneous "requested" reactions to the same push can cancel each other out before either runs,
-# silently dropping that row's update. Splitting the group per workflow keeps them from competing.
+# serialize (never cancel) updates for the same PR branch. This MUST be shared between Preview
+# Frontend's and Preview Backend's reactions (not split per workflow) - they read-modify-write the
+# same comment, and each does a "find existing comment, else create one" check; if both run truly
+# in parallel (e.g. their "requested" events fire moments apart on a fresh push), both can see no
+# comment yet and both create one, posting a duplicate. Serializing them here is what makes that
+# check-then-create safe. head_repository+head_branch is used instead of head_sha so this also
+# serializes across pushes, and instead of pull_requests[0].number, which GitHub leaves empty for
+# fork-originated PRs.
 concurrency:
-  group: preview-status-${{ github.event.workflow_run.name }}-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  group: preview-status-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 jobs:

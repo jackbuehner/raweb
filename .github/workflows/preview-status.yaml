@@ -17,16 +17,20 @@ on:
     types: [requested, completed]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
   actions: read
 
-# serialize (never cancel) updates for the same PR branch, since the frontend and backend
-# workflows both read-modify-write the same comment and would otherwise race each other -
-# head_repository+head_branch is used instead of head_sha so this also serializes across pushes,
-# and instead of pull_requests[0].number, which GitHub leaves empty for fork-originated PRs
+# serialize (never cancel) updates for the same PR branch, since concurrent runs read-modify-write
+# the same comment and would otherwise race each other - head_repository+head_branch is used
+# instead of head_sha so this also serializes across pushes, and instead of pull_requests[0].number,
+# which GitHub leaves empty for fork-originated PRs. The workflow name is included too: GitHub only
+# keeps ONE pending run per concurrency group and cancels an older pending one outright when a new
+# run wants the same slot, so without this, Preview Frontend's and Preview Backend's near-
+# simultaneous "requested" reactions to the same push can cancel each other out before either runs,
+# silently dropping that row's update. Splitting the group per workflow keeps them from competing.
 concurrency:
-  group: preview-status-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  group: preview-status-${{ github.event.workflow_run.name }}-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 jobs:
@@ -43,11 +47,6 @@ jobs:
       !(github.event.action == 'completed' && github.event.workflow_run.conclusion == 'skipped')
 
     steps:
-      - name: Checkout repository (for gh-pages push only, base branch)
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
       - name: Resolve pull request number
         id: pr
         env:
@@ -123,60 +122,13 @@ jobs:
           echo "server_conclusion=${server:-unknown}" >> "$GITHUB_OUTPUT"
           echo "desktop_conclusion=${desktop:-unknown}" >> "$GITHUB_OUTPUT"
 
-      # only meaningful for the web app row on completion - downloads the dist artifact produced
-      # by preview-frontend.yaml so it can be published to gh-pages (already-built static output
-      # only; no PR code is ever executed here)
-      - name: Download frontend dist artifact
-        if: >-
-          steps.pr.outputs.found == 'true' &&
-          github.event.action == 'completed' &&
-          steps.context.outputs.is_frontend == 'true' &&
-          github.event.workflow_run.conclusion == 'success' &&
-          steps.context.outputs.trusted == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}
-          name: frontend-dist
-          path: frontend-dist
-
-      - name: Publish deploy preview to gh-pages
-        id: publish
-        if: >-
-          steps.pr.outputs.found == 'true' &&
-          github.event.action == 'completed' &&
-          steps.context.outputs.is_frontend == 'true' &&
-          github.event.workflow_run.conclusion == 'success' &&
-          steps.context.outputs.trusted == 'true'
-        run: |
-          target="pr-${{ steps.pr.outputs.number }}"
-
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-
-          set +e
-          git fetch origin gh-pages
-          fetch_status=$?
-          set -e
-
-          if [ $fetch_status -ne 0 ]; then
-            git checkout --orphan gh-pages
-          else
-            git checkout gh-pages
-          fi
-
-          rm -rf "deploy-preview/${target}"
-          mkdir -p "deploy-preview/${target}"
-          cp -r frontend-dist/* "deploy-preview/${target}/"
-          git add "deploy-preview/${target}"
-          git commit -m "chore: update deploy preview for ${target}" || echo "No changes"
-          git push origin gh-pages
-
-          echo "deploy_url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/deploy-preview/${target}/" >> "$GITHUB_OUTPUT"
-
-      # for non-trusted forks, we never build/publish anything ourselves - we only check whether
-      # the contributor already has their own GitHub Pages site (built independently by their own
-      # push-triggered run in their own fork)
+      # for BOTH trusted and untrusted contributors, we never build/publish a preview onto this
+      # repo's own gh-pages - every trusted owner's repo already deploys deploy-preview/{branch}/
+      # to their OWN GitHub Pages via their own push-triggered build (the same assumption
+      # install.raweb.app already relies on for the install script), independent of any PR. So
+      # trusted users' preview URL is just constructed directly (see webappSection() below);
+      # only an untrusted fork needs this check, to catch the case where they haven't enabled
+      # Pages at all (the "GitHub Pages is not enabled" error, with setup instructions)
       - name: Check fork's own GitHub Pages status
         id: fork_pages
         if: >-
@@ -210,9 +162,9 @@ jobs:
           SERVER_CONCLUSION: ${{ steps.backend_jobs.outputs.server_conclusion }}
           DESKTOP_CONCLUSION: ${{ steps.backend_jobs.outputs.desktop_conclusion }}
           HEAD_OWNER: ${{ steps.context.outputs.head_owner }}
+          HEAD_REPO: ${{ steps.context.outputs.head_repo }}
           HEAD_BRANCH: ${{ steps.context.outputs.head_branch }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
-          DEPLOY_URL: ${{ steps.publish.outputs.deploy_url }}
           FORK_PAGES_ENABLED: ${{ steps.fork_pages.outputs.enabled }}
           FORK_PAGES_URL: ${{ steps.fork_pages.outputs.url }}
           DOCS_URL: https://raweb.app/docs/pr-previews/
@@ -223,7 +175,7 @@ jobs:
             const {
               EVENT_ACTION, IS_BACKEND, IS_FRONTEND, TRUSTED, CONCLUSION,
               SERVER_CONCLUSION, DESKTOP_CONCLUSION,
-              HEAD_OWNER, HEAD_BRANCH, RUN_URL, DEPLOY_URL,
+              HEAD_OWNER, HEAD_REPO, HEAD_BRANCH, RUN_URL,
               FORK_PAGES_ENABLED, FORK_PAGES_URL, DOCS_URL,
             } = process.env;
             const trusted = TRUSTED === "true";
@@ -239,7 +191,7 @@ jobs:
               return disabled ? picture : `<a href="${href}" rel="nofollow">${picture}</a>`;
             };
 
-            const logsLink = (url) => (url ? `<a href="${url}">View logs</a>` : "");
+            const logsLink = (url) => (url ? btn("view-logs", url, false) : "");
 
             function serverSection() {
               if (!trusted) {
@@ -299,9 +251,17 @@ jobs:
               }
 
               if (trusted) {
+                // every trusted owner's repo (including this one, for the push/same-repo case)
+                // already deploys deploy-preview/{branch}/ to its OWN GitHub Pages via its own
+                // push-triggered build, independent of any PR - the same assumption
+                // install.raweb.app already relies on for the install script - so this is just
+                // constructed directly rather than downloaded/republished onto this repo's pages
+                const url = HEAD_BRANCH === "master"
+                  ? `https://${HEAD_OWNER}.github.io/${HEAD_REPO}/`
+                  : `https://${HEAD_OWNER}.github.io/${HEAD_REPO}/deploy-preview/${HEAD_BRANCH}/`;
                 return {
                   status: "Ready",
-                  button: btn("view-preview-in-browser", DEPLOY_URL, false),
+                  button: btn("view-preview-in-browser", url, false),
                 };
               }
 

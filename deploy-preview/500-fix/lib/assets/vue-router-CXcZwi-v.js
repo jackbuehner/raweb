@@ -1,0 +1,1 @@
+import{ut as e}from"./shared-SnC_m2ay.js";export{e as RouterLink};

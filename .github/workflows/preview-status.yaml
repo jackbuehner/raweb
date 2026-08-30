@@ -122,11 +122,36 @@ jobs:
           echo "head_repo=$HEAD_REPO" >> "$GITHUB_OUTPUT"
           echo "head_branch=$HEAD_BRANCH" >> "$GITHUB_OUTPUT"
 
+      # this workflow serializes on a concurrency group (see above), so a reaction can sit queued
+      # for a while before it actually runs - by then, a later push may have already produced a
+      # newer run of the SAME workflow+branch, whose own (later-queued) reaction will report more
+      # current information. Without this check, an old queued reaction finally getting its turn
+      # would overwrite that fresher data with stale status/logs pointing at the older run.
+      - name: Check for a newer run
+        if: steps.pr.outputs.found == 'true'
+        id: freshness
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CURRENT_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          latest_id=$(gh api "repos/${{ github.repository }}/actions/workflows/${WORKFLOW_PATH}/runs?branch=${HEAD_BRANCH}&per_page=1" \
+            --jq '.workflow_runs[0].id // empty')
+
+          if [ -n "$latest_id" ] && [ "$latest_id" != "$CURRENT_RUN_ID" ]; then
+            echo "A newer run ($latest_id) exists for $WORKFLOW_PATH on $HEAD_BRANCH; this run ($CURRENT_RUN_ID) is stale, skipping."
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # Preview Backend's overall run conclusion can't tell "server" and "desktop app" apart (e.g.
       # one can fail while the other succeeds), so their individual job conclusions are needed
       - name: Determine backend job conclusions
         if: >-
           steps.pr.outputs.found == 'true' &&
+          steps.freshness.outputs.is_latest == 'true' &&
           github.event.action == 'completed' &&
           steps.context.outputs.is_backend == 'true'
         id: backend_jobs
@@ -152,6 +177,7 @@ jobs:
         id: fork_pages
         if: >-
           steps.pr.outputs.found == 'true' &&
+          steps.freshness.outputs.is_latest == 'true' &&
           github.event.action == 'completed' &&
           steps.context.outputs.is_frontend == 'true' &&
           github.event.workflow_run.conclusion == 'success' &&
@@ -170,7 +196,7 @@ jobs:
           fi
 
       - name: Update status comment
-        if: steps.pr.outputs.found == 'true'
+        if: steps.pr.outputs.found == 'true' && steps.freshness.outputs.is_latest == 'true'
         uses: actions/github-script@v8
         env:
           EVENT_ACTION: ${{ github.event.action }}

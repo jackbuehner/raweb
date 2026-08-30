@@ -37,14 +37,19 @@ jobs:
   update-comment:
     name: Update preview status comment
     runs-on: ubuntu-latest
-    # ignore the "completed" reaction for a same-repo pull_request run that got skipped by
-    # preview-frontend.yaml/preview-backend.yaml in favor of the equivalent push run (see the note
-    # above) - otherwise this skipped, resultless run would overwrite the real status the push
-    # run's own "completed" reaction just wrote. The "requested" reaction for it is harmless (it
-    # only writes "Building...", which the push run's own events promptly supersede).
+    # ignore the "completed" reaction for a run that ended up with no real result to report:
+    # - "skipped": a same-repo pull_request run that preview-frontend.yaml/preview-backend.yaml
+    #   skipped in favor of the equivalent push run (see the note above) - otherwise this skipped,
+    #   resultless run would overwrite the real status the push run's own "completed" reaction
+    #   just wrote (or would write later).
+    # - "cancelled": GitHub auto-cancels an older in-progress run for the same workflow+branch when
+    #   a newer commit is pushed before it finishes - without this, that stale run's "completed"
+    #   event can land after the real run's, overwriting good status/logs with a dead run's.
+    # The "requested" reaction for either case is harmless (it only writes "Building...", which a
+    # subsequent real run's events promptly supersede).
     if: >-
       (github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'push') &&
-      !(github.event.action == 'completed' && github.event.workflow_run.conclusion == 'skipped')
+      !(github.event.action == 'completed' && contains(fromJson('["skipped", "cancelled"]'), github.event.workflow_run.conclusion))
 
     steps:
       - name: Resolve pull request number
@@ -61,8 +66,20 @@ jobs:
             # Filtering to open is required here: an ordinary push to master is normally associated
             # with whatever PR historically introduced that commit once it's merged/closed, and we
             # must not resurrect a status comment on an already-closed PR.
-            number=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/pulls" \
-              --jq '[.[] | select(.state == "open")][0].number')
+            #
+            # Retried a few times: if someone pushes and opens the PR right after, this "requested"
+            # reaction can fire and query GitHub before the PR object exists yet (seen in practice:
+            # push at T+0s, this lookup at T+8s finding nothing, PR actually created at T+18s).
+            # Without the retry, a slow build (e.g. the Windows backend) would sit with no button/
+            # logs at all until its "completed" reaction, minutes later, finally finds the PR.
+            for attempt in 1 2 3 4 5; do
+              number=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/pulls" \
+                --jq '[.[] | select(.state == "open")][0].number')
+              if [ -n "$number" ] && [ "$number" != "null" ]; then
+                break
+              fi
+              sleep 5
+            done
           fi
 
           if [ -z "$number" ] || [ "$number" = "null" ]; then

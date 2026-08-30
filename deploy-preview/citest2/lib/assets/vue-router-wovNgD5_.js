@@ -1,0 +1,1 @@
+import{ut as e}from"./shared-USF2MaeS.js";export{e as RouterLink};

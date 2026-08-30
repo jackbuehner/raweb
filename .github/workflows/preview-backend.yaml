@@ -38,7 +38,10 @@ jobs:
     name: Build guacd WSL distribution
     runs-on: ubuntu-latest
 
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    # a pull_request from a branch in THIS repo is redundant since the push event already fires
+    if: >-
+      ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) ||
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
 
     steps:
       - uses: actions/checkout@v7
@@ -59,7 +62,12 @@ jobs:
     name: Test server (backend)
     runs-on: windows-latest
 
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    # a pull_request from a branch in THIS repo is redundant with the push event that already
+    # fired for the same commit (see preview-status.yaml, which reacts to that push instead) -
+    # only fork PRs actually need building here, since there is no equivalent push event for them
+    if: >-
+      ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) ||
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
 
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
@@ -106,7 +114,12 @@ jobs:
     runs-on: windows-latest
     needs: [build-guacd, test-server]
 
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    # a pull_request from a branch in THIS repo is redundant with the push event that already
+    # fired for the same commit (see preview-status.yaml, which reacts to that push instead) -
+    # only fork PRs actually need building here, since there is no equivalent push event for them
+    if: >-
+      ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) ||
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
 
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
@@ -292,7 +305,12 @@ jobs:
     runs-on: windows-latest
     needs: [test-server]
 
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    # a pull_request from a branch in THIS repo is redundant with the push event that already
+    # fired for the same commit (see preview-status.yaml, which reacts to that push instead) -
+    # only fork PRs actually need building here, since there is no equivalent push event for them
+    if: >-
+      ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) ||
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
 
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages

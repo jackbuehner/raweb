@@ -25,3 +25,5 @@ GitHub disables Actions on forks by default.
 ## 3. Push again
 
 Push a new commit to your PR's branch (or re-run the workflow). The next build publishes to `https://<your-username>.github.io/raweb/`. Your PR's status comment will link to it once it is ready.
+
+<!-- test change: verifying pull_request path-filtered triggers fire for real diffs -->

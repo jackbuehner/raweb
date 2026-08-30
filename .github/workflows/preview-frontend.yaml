@@ -21,7 +21,7 @@ concurrency: preview-frontend-${{ github.ref }}
 
 jobs:
   build-and-preview:
-    name: Build web app (frontend)
+    name: Build web app (frontend) :)
     runs-on: ubuntu-latest
 
     if: ${{ !github.event.act }}

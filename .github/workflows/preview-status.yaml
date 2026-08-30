@@ -37,19 +37,21 @@ jobs:
   update-comment:
     name: Update preview status comment
     runs-on: ubuntu-latest
-    # ignore the "completed" reaction for a run that ended up with no real result to report:
-    # - "skipped": a same-repo pull_request run that preview-frontend.yaml/preview-backend.yaml
-    #   skipped in favor of the equivalent push run (see the note above) - otherwise this skipped,
-    #   resultless run would overwrite the real status the push run's own "completed" reaction
-    #   just wrote (or would wrote later).
+    # ignore reactions for a run that has (or will have) no real result to report:
+    # - a same-repo pull_request run is entirely skipped by preview-frontend.yaml/preview-
+    #   backend.yaml in favor of the equivalent push run (see the note above). This is knowable
+    #   in advance - same-repo + pull_request always means it will be skipped - so even its
+    #   "requested" reaction is ignored, rather than flipping the row to "Building..." for a job
+    #   that was never going to run; the row just stays whatever it already showed. Its
+    #   "completed" reaction (conclusion "skipped") is ignored for the same reason.
     # - "cancelled": GitHub auto-cancels an older in-progress run for the same workflow+branch when
     #   a newer commit is pushed before it finishes - without this, that stale run's "completed"
-    #   event can land after the real run's, overwriting good status/logs with a dead run's.
-    # The "requested" reaction for either case is harmless (it only writes "Building...", which a
-    # subsequent real run's events promptly supersede).
+    #   event can land after the real run's, overwriting good status/logs with a dead run's. This
+    #   is only knowable once it happens, so only its "completed" reaction is ignored.
     if: >-
       (github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'push') &&
-      !(github.event.action == 'completed' && contains(fromJson('["skipped", "cancelled"]'), github.event.workflow_run.conclusion))
+      !(github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name == github.repository) &&
+      !(github.event.action == 'completed' && github.event.workflow_run.conclusion == 'cancelled')
 
     steps:
       - name: Resolve pull request number
@@ -66,8 +68,20 @@ jobs:
             # Filtering to open is required here: an ordinary push to master is normally associated
             # with whatever PR historically introduced that commit once it's merged/closed, and we
             # must not resurrect a status comment on an already-closed PR.
-            number=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/pulls" \
-              --jq '[.[] | select(.state == "open")][0].number')
+            #
+            # Retried a few times: if someone pushes and opens the PR right after, this "requested"
+            # reaction can fire and query GitHub before the PR object exists yet (seen in practice:
+            # push at T+0s, this lookup at T+8s finding nothing, PR actually created at T+18s).
+            # Without the retry, a slow build (e.g. the Windows backend) would sit with no button/
+            # logs at all until its "completed" reaction, minutes later, finally finds the PR.
+            for attempt in 1 2 3 4 5; do
+              number=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/pulls" \
+                --jq '[.[] | select(.state == "open")][0].number')
+              if [ -n "$number" ] && [ "$number" != "null" ]; then
+                break
+              fi
+              sleep 5
+            done
           fi
 
           if [ -z "$number" ] || [ "$number" = "null" ]; then

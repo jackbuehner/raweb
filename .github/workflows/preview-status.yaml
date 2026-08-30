@@ -37,14 +37,19 @@ jobs:
   update-comment:
     name: Update preview status comment
     runs-on: ubuntu-latest
-    # ignore the "completed" reaction for a same-repo pull_request run that got skipped by
-    # preview-frontend.yaml/preview-backend.yaml in favor of the equivalent push run (see the note
-    # above) - otherwise this skipped, resultless run would overwrite the real status the push
-    # run's own "completed" reaction just wrote. The "requested" reaction for it is harmless (it
-    # only writes "Building...", which the push run's own events promptly supersede).
+    # ignore the "completed" reaction for a run that ended up with no real result to report:
+    # - "skipped": a same-repo pull_request run that preview-frontend.yaml/preview-backend.yaml
+    #   skipped in favor of the equivalent push run (see the note above) - otherwise this skipped,
+    #   resultless run would overwrite the real status the push run's own "completed" reaction
+    #   just wrote (or would wrote later).
+    # - "cancelled": GitHub auto-cancels an older in-progress run for the same workflow+branch when
+    #   a newer commit is pushed before it finishes - without this, that stale run's "completed"
+    #   event can land after the real run's, overwriting good status/logs with a dead run's.
+    # The "requested" reaction for either case is harmless (it only writes "Building...", which a
+    # subsequent real run's events promptly supersede).
     if: >-
       (github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'push') &&
-      !(github.event.action == 'completed' && github.event.workflow_run.conclusion == 'skipped')
+      !(github.event.action == 'completed' && contains(fromJson('["skipped", "cancelled"]'), github.event.workflow_run.conclusion))
 
     steps:
       - name: Resolve pull request number

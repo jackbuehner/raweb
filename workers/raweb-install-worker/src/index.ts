@@ -105,7 +105,7 @@ export default {
 					return new Response(
 						`
 <h1>
-  No pre-built installer is available for this branch.
+  No pre-built installer is available for this branch
 </h1>
 <p>
   Your options:
@@ -116,7 +116,7 @@ export default {
 </ul>
 
 <h2>
-  Install directly from source
+  Steps to install directly from source
 </h2>
 <ol>
   <li>
@@ -125,7 +125,7 @@ export default {
 	</li>
   <li>
 		Launch the <b>Multi-version installer for RAWeb</b>,
-		usually available from <a href="https://github.com/${owner}/raweb/releases/latest">the latest release</a>
+		usually available from <a href="https://github.com/${owner}/raweb/releases/latest">the latest release</a>.
 	</li>
   <li>
 		When prompted, choose <b>Use a local folder or .zip file</b> and select the source code archive you downloaded.

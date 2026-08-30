@@ -230,13 +230,13 @@ jobs:
 
             const btn = (label, href, disabled) => {
               const base = disabled ? `${label}-disabled` : label;
-              const style = disabled ? ' style="pointer-events:none;"' : "";
-              return `<a href="${href}" rel="nofollow"${style}>` +
-                `<picture>` +
+              const picture = `<picture>` +
                 `<source media="(prefers-color-scheme: dark)" srcset="https://install.raweb.app/buttons/${base}-dark.svg">` +
                 `<source media="(prefers-color-scheme: light)" srcset="https://install.raweb.app/buttons/${base}-light.svg">` +
                 `<img src="https://install.raweb.app/buttons/${base}-light.svg" alt="${label}" height="32">` +
-                `</picture></a>`;
+                `</picture>`;
+              // a disabled button is not actionable, so it is never wrapped in a link
+              return disabled ? picture : `<a href="${href}" rel="nofollow">${picture}</a>`;
             };
 
             const logsLink = (url) => (url ? `<a href="${url}">View logs</a>` : "");

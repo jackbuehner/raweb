@@ -196,46 +196,50 @@ jobs:
             const logsLink = (url) => (url ? btn("view-logs", url, false) : "");
 
             function serverSection() {
-              if (!trusted) {
-                return {
-                  status: "Not available for builds from outside contributors",
-                  button: "",
-                };
-              }
-
               const installUrl = `https://install.raweb.app/preview/${HEAD_OWNER}/${HEAD_BRANCH}`;
+              const sourceUrl = `${installUrl}?source=force`;
+              const sourceButtonVariant = trusted
+                ? "install-this-developer-build-from-source-primary"
+                : "install-this-developer-build-from-source-danger";
 
               if (EVENT_ACTION === "requested") {
                 return {
-                  status: "Building",
-                  button: btn("install-this-developer-build-from-source-primary", `${installUrl}?source=force`, false),
+                  status: "⏳ Building",
+                  button: btn(sourceButtonVariant, sourceUrl, false),
                 };
               }
 
               if (SERVER_CONCLUSION === "success") {
+                if (trusted) {
+                  return {
+                    status: "✅ Success",
+                    button: btn("install-this-developer-build-primary", installUrl, false),
+                  };
+                }
+
                 return {
-                  status: "Success",
-                  button: btn("install-this-developer-build-primary", installUrl, false),
+                  status: "✅ Success",
+                  button: btn(sourceButtonVariant, sourceUrl, false),
                 };
               }
 
               return {
-                status: "Build failed",
-                button: btn("install-this-developer-build-from-source-primary", `${installUrl}?source=force`, false),
+                status: "❌ Build failed",
+                button: btn(sourceButtonVariant, sourceUrl, false),
               };
             }
 
             function desktopSection() {
               if (EVENT_ACTION === "requested") {
-                return { status: "Building", button: btn("install-this-developer-build", "#", true) };
+                return { status: "⏳ Building", button: btn("install-this-developer-build", "#", true) };
               }
 
               if (DESKTOP_CONCLUSION === "success" && DESKTOP_ARTIFACT_URL) {
-                return { status: "Success", button: btn("install-this-developer-build", DESKTOP_ARTIFACT_URL, false) };
+                return { status: "✅ Success", button: btn("install-this-developer-build", DESKTOP_ARTIFACT_URL, false) };
               }
 
               return {
-                status: DESKTOP_CONCLUSION === "success" ? "Success" : "Build failed",
+                status: DESKTOP_CONCLUSION === "success" ? "✅ Success" : "❌ Build failed",
                 button: btn("install-this-developer-build", "#", true),
               };
             }
@@ -243,14 +247,14 @@ jobs:
             function webappSection() {
               if (EVENT_ACTION === "requested") {
                 return {
-                  status: "Building",
+                  status: "⏳ Building",
                   button: btn("view-preview-in-browser", "#", true),
                 };
               }
 
               if (CONCLUSION !== "success") {
                 return {
-                  status: "Build or deployment failed",
+                  status: "❌ Build or deployment failed",
                   button: btn("view-preview-in-browser", "#", true),
                 };
               }
@@ -260,20 +264,20 @@ jobs:
                   ? `https://${HEAD_OWNER}.github.io/${HEAD_REPO}/`
                   : `https://${HEAD_OWNER}.github.io/${HEAD_REPO}/deploy-preview/${HEAD_BRANCH}/`;
                 return {
-                  status: "Deployed",
+                  status: "✅ Deployed",
                   button: btn("view-preview-in-browser", url, false),
                 };
               }
 
               if (FORK_PAGES_ENABLED === "true") {
                 return {
-                  status: "Deployed",
+                  status: "✅ Deployed",
                   button: btn("view-preview-in-browser", FORK_PAGES_URL, false),
                 };
               }
 
               return {
-                status: `Error: GitHub Pages is not enabled on your fork. [Instructions](${DOCS_URL})`,
+                status: `❌ Error: GitHub Pages is not enabled on your fork. [Instructions](${DOCS_URL})`,
                 button: btn("view-preview-in-browser", "#", true),
               };
             }
@@ -338,9 +342,9 @@ jobs:
               : currentBody;
 
             const defaults = {
-              server: { status: "Building...", button: "", logs: "" },
-              webapp: { status: "Building...", button: "", logs: "" },
-              desktop: { status: "Building...", button: "", logs: "" },
+              server: { status: "⏳ Building...", button: "", logs: "" },
+              webapp: { status: "⏳ Building...", button: "", logs: "" },
+              desktop: { status: "⏳ Building...", button: "", logs: "" },
             };
             if (hasTable) {
               defaults.server.status = extract(currentBody, "STATUS:SERVER", defaults.server.status);

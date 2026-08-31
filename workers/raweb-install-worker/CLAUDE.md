@@ -50,9 +50,11 @@ The trim result's width is the real ink width of the label text at `font-size:14
 | Primary, dark | `#238636` | `#ffffff26` | `#ffffff` |
 | Disabled, light | `#e6eaef` | none (`border:0`) | `#59636e` |
 | Disabled, dark | `#262c36` | none (`border:0`) | `#9198a1` |
+| Danger, light | `#f6f8fa` (same as default) | `#d0d7de` (same as default) | `#d1242f` |
+| Danger, dark | `#21262d` (same as default) | `rgba(240,246,252,0.15)` (same as default) | `#fa5e55` |
 
 Font: `font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="500"`.
 
 ## Naming convention
 
-`{verb}-{subject}[-primary|-disabled]-{dark|light}.svg`, e.g. `install-this-developer-build.svg`, `install-this-developer-build-primary-dark.svg`, `view-preview-in-browser-disabled-light.svg`. Each variant needs both a `-light` and `-dark` file.
+`{verb}-{subject}[-primary|-disabled|-danger]-{dark|light}.svg`, e.g. `install-this-developer-build.svg`, `install-this-developer-build-primary-dark.svg`, `view-preview-in-browser-disabled-light.svg`. Each variant needs both a `-light` and `-dark` file.

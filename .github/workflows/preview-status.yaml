@@ -44,13 +44,14 @@ jobs:
           fi
 
           if [ -z "$number" ] || [ "$number" = "null" ]; then
-            echo "Could not resolve a pull request for this workflow_run; skipping."
+            echo "Could not resolve a pull request for this workflow_run. Skipping." | tee -a "$GITHUB_STEP_SUMMARY"
             echo "found=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "found=true" >> "$GITHUB_OUTPUT"
           echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "Resolved pull request #$number for head SHA $HEAD_SHA." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Determine context
         if: steps.pr.outputs.found == 'true'
@@ -94,9 +95,10 @@ jobs:
             --jq '.workflow_runs[0].id // empty')
 
           if [ -n "$latest_id" ] && [ "$latest_id" != "$CURRENT_RUN_ID" ]; then
-            echo "A newer run ($latest_id) exists for $WORKFLOW_PATH on $HEAD_BRANCH; this run ($CURRENT_RUN_ID) is stale, skipping."
+            echo "A newer $RUN_EVENT run ($latest_id) exists for $WORKFLOW_PATH on $HEAD_BRANCH; this run ($CURRENT_RUN_ID) is stale, skipping." | tee -a "$GITHUB_STEP_SUMMARY"
             echo "is_latest=false" >> "$GITHUB_OUTPUT"
           else
+            echo "This is the latest $RUN_EVENT run of $WORKFLOW_PATH on $HEAD_BRANCH." >> "$GITHUB_STEP_SUMMARY"
             echo "is_latest=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -277,7 +279,8 @@ jobs:
             }
 
             function renderBody({ server, webapp, desktop }) {
-              return `<!-- DO NOT EDIT CONTENT AFTER THIS LINE -->${marker}
+              return `${marker}
+            <!-- DO NOT EDIT THIS HTML CONTENT -->
             <div width="100%">
             <table width="100%">
               <thead>
@@ -352,11 +355,14 @@ jobs:
             }
 
             const sections = { ...defaults };
+            const updated = [];
             if (IS_BACKEND === "true") {
               sections.server = { ...serverSection(), logs: logsLink(RUN_URL) };
               sections.desktop = { ...desktopSection(), logs: logsLink(RUN_URL) };
+              updated.push(["RAWeb (server)", sections.server.status], ["RemoteApps & Devices (desktop app)", sections.desktop.status]);
             } else if (IS_FRONTEND === "true") {
               sections.webapp = { ...webappSection(), logs: logsLink(RUN_URL) };
+              updated.push(["RemoteApps & Devices (web app)", sections.webapp.status]);
             }
 
             const table = renderBody(sections);
@@ -368,3 +374,11 @@ jobs:
               pull_number: prNumber,
               body: newBody,
             });
+
+            await core.summary
+              .addHeading(`Updated PR #${prNumber}`, 3)
+              .addTable([
+                [{ data: "Row", header: true }, { data: "Status set", header: true }],
+                ...updated,
+              ])
+              .write();

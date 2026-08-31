@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  update-comment:
-    name: Update preview status comment
+  update-description:
+    name: Update PR description
     runs-on: ubuntu-latest
     if: >-
       (github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'push') &&
@@ -146,7 +146,7 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Update status comment
+      - name: Update PR description
         if: steps.pr.outputs.found == 'true' && steps.freshness.outputs.is_latest == 'true'
         uses: actions/github-script@v8
         env:
@@ -170,6 +170,7 @@ jobs:
           script: |
             const prNumber = ${{ steps.pr.outputs.number }};
             const marker = "<!-- DEPLOY-PREVIEW-COMMENT -->";
+            const endMarker = "<!-- /DEPLOY-PREVIEW-COMMENT -->";
             const {
               EVENT_ACTION, IS_BACKEND, IS_FRONTEND, TRUSTED, CONCLUSION,
               SERVER_CONCLUSION, DESKTOP_CONCLUSION, DESKTOP_ARTIFACT_URL,
@@ -310,7 +311,7 @@ jobs:
               </tbody>
             </table>
             </div>
-            `;
+            ${endMarker}`;
             }
 
             function extract(body, tag, fallback) {
@@ -319,28 +320,33 @@ jobs:
               return match ? match[1] : fallback;
             }
 
-            const comments = await github.paginate(github.rest.issues.listComments, {
+            const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: prNumber,
+              pull_number: prNumber,
             });
-            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            const currentBody = pr.body || "";
+            const hasTable = currentBody.includes(marker) && currentBody.includes(endMarker);
+            const blockRe = new RegExp(`${marker}[\\s\\S]*?${endMarker}`);
+            const restOfBody = hasTable
+              ? currentBody.replace(blockRe, "").replace(/\s+$/, "").replace(/^\s+/, "")
+              : currentBody;
 
             const defaults = {
               server: { status: "Building...", button: "", logs: "" },
               webapp: { status: "Building...", button: "", logs: "" },
               desktop: { status: "Building...", button: "", logs: "" },
             };
-            if (existing) {
-              defaults.server.status = extract(existing.body, "STATUS:SERVER", defaults.server.status);
-              defaults.server.button = extract(existing.body, "BUTTON:SERVER", defaults.server.button);
-              defaults.server.logs = extract(existing.body, "LOGS:SERVER", defaults.server.logs);
-              defaults.webapp.status = extract(existing.body, "STATUS:WEBAPP", defaults.webapp.status);
-              defaults.webapp.button = extract(existing.body, "BUTTON:WEBAPP", defaults.webapp.button);
-              defaults.webapp.logs = extract(existing.body, "LOGS:WEBAPP", defaults.webapp.logs);
-              defaults.desktop.status = extract(existing.body, "STATUS:DESKTOP", defaults.desktop.status);
-              defaults.desktop.button = extract(existing.body, "BUTTON:DESKTOP", defaults.desktop.button);
-              defaults.desktop.logs = extract(existing.body, "LOGS:DESKTOP", defaults.desktop.logs);
+            if (hasTable) {
+              defaults.server.status = extract(currentBody, "STATUS:SERVER", defaults.server.status);
+              defaults.server.button = extract(currentBody, "BUTTON:SERVER", defaults.server.button);
+              defaults.server.logs = extract(currentBody, "LOGS:SERVER", defaults.server.logs);
+              defaults.webapp.status = extract(currentBody, "STATUS:WEBAPP", defaults.webapp.status);
+              defaults.webapp.button = extract(currentBody, "BUTTON:WEBAPP", defaults.webapp.button);
+              defaults.webapp.logs = extract(currentBody, "LOGS:WEBAPP", defaults.webapp.logs);
+              defaults.desktop.status = extract(currentBody, "STATUS:DESKTOP", defaults.desktop.status);
+              defaults.desktop.button = extract(currentBody, "BUTTON:DESKTOP", defaults.desktop.button);
+              defaults.desktop.logs = extract(currentBody, "LOGS:DESKTOP", defaults.desktop.logs);
             }
 
             const sections = { ...defaults };
@@ -351,20 +357,12 @@ jobs:
               sections.webapp = { ...webappSection(), logs: logsLink(RUN_URL) };
             }
 
-            const body = renderBody(sections);
+            const table = renderBody(sections);
+            const newBody = restOfBody ? `${restOfBody}\n\n${table}` : table;
 
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body,
-              });
-            }
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              body: newBody,
+            });

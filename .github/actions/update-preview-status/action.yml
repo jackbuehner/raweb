@@ -238,9 +238,9 @@ runs:
             : currentBody;
 
           const defaults = {
-            server: { status: "⏳ Building...", button: "", logs: "" },
-            webapp: { status: "⏳ Building...", button: "", logs: "" },
-            desktop: { status: "⏳ Building...", button: "", logs: "" },
+            server: { status: "🟡 Waiting for runner", button: "", logs: "" },
+            webapp: { status: "🟡 Waiting for runner", button: "", logs: "" },
+            desktop: { status: "🟡 Waiting for runner", button: "", logs: "" },
           };
           if (hasTable) {
             defaults.server.status = extract(currentBody, "STATUS:SERVER", defaults.server.status);

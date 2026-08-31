@@ -62,9 +62,7 @@ jobs:
     name: Test server (backend)
     runs-on: windows-latest
 
-    # a pull_request from a branch in THIS repo is redundant with the push event that already
-    # fired for the same commit (see preview-status.yaml, which reacts to that push instead) -
-    # only fork PRs actually need building here, since there is no equivalent push event for them
+    # a pull_request from a branch in THIS repo is redundant since the push event already fires
     if: >-
       ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) ||
       github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
@@ -114,9 +112,7 @@ jobs:
     runs-on: windows-latest
     needs: [build-guacd, test-server]
 
-    # a pull_request from a branch in THIS repo is redundant with the push event that already
-    # fired for the same commit (see preview-status.yaml, which reacts to that push instead) -
-    # only fork PRs actually need building here, since there is no equivalent push event for them
+    # a pull_request from a branch in THIS repo is redundant since the push event already fires
     if: >-
       ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) ||
       github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
@@ -305,9 +301,7 @@ jobs:
     runs-on: windows-latest
     needs: [test-server]
 
-    # a pull_request from a branch in THIS repo is redundant with the push event that already
-    # fired for the same commit (see preview-status.yaml, which reacts to that push instead) -
-    # only fork PRs actually need building here, since there is no equivalent push event for them
+    # a pull_request from a branch in THIS repo is redundant since the push event already fires
     if: >-
       ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) ||
       github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}

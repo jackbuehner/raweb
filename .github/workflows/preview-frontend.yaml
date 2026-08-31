@@ -95,10 +95,11 @@ jobs:
         env:
           CUSTOM_DOMAIN: ${{ steps.domain.outputs.custom_domain }}
           TARGET_NAME: ${{ steps.context.outputs.target_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           # custom domain in use → no repository prefix
           if [ -n "${CUSTOM_DOMAIN}" ]; then
-            if [ "${{ steps.context.outputs.ref_name }}" = "master" ]; then
+            if [ "${{ steps.context.outputs.ref_name }}" = "${DEFAULT_BRANCH}" ]; then
               RAWEB_PUBLIC_BASE="/"
             else
               RAWEB_PUBLIC_BASE="/deploy-preview/${TARGET_NAME}/"
@@ -107,7 +108,7 @@ jobs:
           # otherwise, use repository prefix, which is required with the GitHub Pages default domain
           else
             # Default GitHub Pages domain (includes repo name)
-            if [ "${{ steps.context.outputs.ref_name }}" = "master" ]; then
+            if [ "${{ steps.context.outputs.ref_name }}" = "${DEFAULT_BRANCH}" ]; then
               RAWEB_PUBLIC_BASE="/${{ github.event.repository.name }}/"
             else
               RAWEB_PUBLIC_BASE="/${{ github.event.repository.name }}/deploy-preview/${TARGET_NAME}/"
@@ -124,26 +125,19 @@ jobs:
           touch dist/index.html
           echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Redirecting...</title><meta http-equiv="refresh" content="0; url=./docs/"><link rel="canonical" href="./docs/"></head><body>If you are not redirected automatically, follow this <a href="./docs/">link to documentation</a>.</body></html>' > dist/index.html
 
-      # for pull_request events, no privileged token is available (or wanted) here - the built
-      # output is uploaded as an artifact, and a separate workflow (preview-status.yaml), which
-      # never checks out or executes PR-authored code, decides whether/where to publish it
-      - name: Upload dist artifact
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v7
-        with:
-          name: frontend-dist
-          path: frontend/dist
-          retention-days: 7
-
-      # push events are always from repository collaborators (never PR-authored code), so it is
-      # safe to publish directly here with the normal push-scoped token
       - name: Push to gh-pages branch
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' # push means that it came from a repository collaborator, so this is safe
         env:
           TARGET_NAME: ${{ steps.context.outputs.target_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          # copy the build output outside the repo before switching to the gh-page branch
+          dist_dir="$RUNNER_TEMP/frontend-dist"
+          rm -rf "$dist_dir"
+          cp -r frontend/dist "$dist_dir"
+
+          git config user.name "RAWeb [bot]"
+          git config user.email action-bot@raweb.app
 
           set +e
           git fetch origin gh-pages
@@ -151,20 +145,24 @@ jobs:
           set -e
 
           if [ $fetch_status -ne 0 ]; then
+            # branch does not exist yet
             git checkout --orphan gh-pages
           else
+            # branch already exists
             git checkout gh-pages
           fi
 
-          if [ "${TARGET_NAME}" = "master" ]; then
+          if [ "${TARGET_NAME}" = "${DEFAULT_BRANCH}" ]; then
+            # the default branch deploys to the root of gh-pages
             find . -maxdepth 1 -not -name '.' -not -name '..' -not -name '.git' -not -name 'deploy-preview' -exec rm -rf {} +
-            cp -r frontend/dist/* .
+            cp -r "$dist_dir"/* .
             git add .
             git commit -m "chore: update production site" || echo "No changes"
           else
+            # all other branchs go to a subfolder of the the deploy-preview folder
             rm -rf "deploy-preview/${TARGET_NAME}"
             mkdir -p "deploy-preview/${TARGET_NAME}"
-            cp -r frontend/dist/* "deploy-preview/${TARGET_NAME}/"
+            cp -r "$dist_dir"/* "deploy-preview/${TARGET_NAME}/"
             git add deploy-preview/${TARGET_NAME}
             git commit -m "chore: update deploy preview for ${TARGET_NAME}" || echo "No changes"
           fi
@@ -179,7 +177,7 @@ jobs:
     if: ${{ !github.event.act && github.event_name == 'push' }}
 
     environment:
-      name: ${{ needs.build-and-preview.outputs.ref_name == 'master' && 'Production' || 'Development' }}
+      name: ${{ needs.build-and-preview.outputs.ref_name == github.event.repository.default_branch && 'Production' || 'Development' }}
 
     permissions:
       pages: write

@@ -1,16 +1,5 @@
 name: Preview Status
 
-# This workflow never checks out or executes PR-authored code. It only reacts to the completion
-# (or start) of preview-frontend.yaml / preview-backend.yaml runs, which is why it is safe to run
-# with a privileged, secret-bearing token for ANY pull request, including ones from untrusted
-# forks - unlike pull_request_target, nothing here ever builds/runs code the PR author controls.
-#
-# It reacts to both pull_request- and push-triggered runs of those workflows: a pull_request from
-# a branch in this repo is skipped by preview-frontend.yaml/preview-backend.yaml (redundant with
-# the push event for the same commit), so for same-repo PRs this workflow has to pick the build
-# results up from that push-triggered run instead. Fork PRs have no equivalent push event in this
-# repo, so they always arrive here as pull_request-triggered runs.
-
 on:
   workflow_run:
     workflows: ["Preview Frontend", "Preview Backend"]
@@ -21,14 +10,6 @@ permissions:
   pull-requests: write
   actions: read
 
-# serialize (never cancel) updates for the same PR branch. This MUST be shared between Preview
-# Frontend's and Preview Backend's reactions (not split per workflow) - they read-modify-write the
-# same comment, and each does a "find existing comment, else create one" check; if both run truly
-# in parallel (e.g. their "requested" events fire moments apart on a fresh push), both can see no
-# comment yet and both create one, posting a duplicate. Serializing them here is what makes that
-# check-then-create safe. head_repository+head_branch is used instead of head_sha so this also
-# serializes across pushes, and instead of pull_requests[0].number, which GitHub leaves empty for
-# fork-originated PRs.
 concurrency:
   group: preview-status-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
@@ -37,17 +18,6 @@ jobs:
   update-comment:
     name: Update preview status comment
     runs-on: ubuntu-latest
-    # ignore reactions for a run that has (or will have) no real result to report:
-    # - a same-repo pull_request run is entirely skipped by preview-frontend.yaml/preview-
-    #   backend.yaml in favor of the equivalent push run (see the note above). This is knowable
-    #   in advance - same-repo + pull_request always means it will be skipped - so even its
-    #   "requested" reaction is ignored, rather than flipping the row to "Building..." for a job
-    #   that was never going to run; the row just stays whatever it already showed. Its
-    #   "completed" reaction (conclusion "skipped") is ignored for the same reason.
-    # - "cancelled": GitHub auto-cancels an older in-progress run for the same workflow+branch when
-    #   a newer commit is pushed before it finishes - without this, that stale run's "completed"
-    #   event can land after the real run's, overwriting good status/logs with a dead run's. This
-    #   is only knowable once it happens, so only its "completed" reaction is ignored.
     if: >-
       (github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'push') &&
       !(github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name == github.repository) &&
@@ -63,17 +33,6 @@ jobs:
           number="${{ github.event.workflow_run.pull_requests[0].number }}"
 
           if [ -z "$number" ]; then
-            # workflow_run does not auto-associate pull_requests for forks, or for any push event
-            # (push events never have PRs attached) - look up the OPEN PR for this commit instead.
-            # Filtering to open is required here: an ordinary push to master is normally associated
-            # with whatever PR historically introduced that commit once it's merged/closed, and we
-            # must not resurrect a status comment on an already-closed PR.
-            #
-            # Retried a few times: if someone pushes and opens the PR right after, this "requested"
-            # reaction can fire and query GitHub before the PR object exists yet (seen in practice:
-            # push at T+0s, this lookup at T+8s finding nothing, PR actually created at T+18s).
-            # Without the retry, a slow build (e.g. the Windows backend) would sit with no button/
-            # logs at all until its "completed" reaction, minutes later, finally finds the PR.
             for attempt in 1 2 3 4 5; do
               number=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/pulls" \
                 --jq '[.[] | select(.state == "open")][0].number')
@@ -102,8 +61,6 @@ jobs:
           HEAD_REPO: ${{ github.event.workflow_run.head_repository.name }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          # Preview Backend covers two independent rows (server, desktop app) sourced from two of
-          # its jobs; Preview Frontend covers one row (web app) sourced from its single job/run
           if [ "$WORKFLOW_NAME" = "Preview Backend" ]; then
             echo "is_backend=true" >> "$GITHUB_OUTPUT"
             echo "is_frontend=false" >> "$GITHUB_OUTPUT"
@@ -122,11 +79,6 @@ jobs:
           echo "head_repo=$HEAD_REPO" >> "$GITHUB_OUTPUT"
           echo "head_branch=$HEAD_BRANCH" >> "$GITHUB_OUTPUT"
 
-      # this workflow serializes on a concurrency group (see above), so a reaction can sit queued
-      # for a while before it actually runs - by then, a later push may have already produced a
-      # newer run of the SAME workflow+branch, whose own (later-queued) reaction will report more
-      # current information. Without this check, an old queued reaction finally getting its turn
-      # would overwrite that fresher data with stale status/logs pointing at the older run.
       - name: Check for a newer run
         if: steps.pr.outputs.found == 'true'
         id: freshness
@@ -146,8 +98,6 @@ jobs:
             echo "is_latest=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Preview Backend's overall run conclusion can't tell "server" and "desktop app" apart (e.g.
-      # one can fail while the other succeeds), so their individual job conclusions are needed
       - name: Determine backend job conclusions
         if: >-
           steps.pr.outputs.found == 'true' &&
@@ -166,13 +116,14 @@ jobs:
           echo "server_conclusion=${server:-unknown}" >> "$GITHUB_OUTPUT"
           echo "desktop_conclusion=${desktop:-unknown}" >> "$GITHUB_OUTPUT"
 
-      # for BOTH trusted and untrusted contributors, we never build/publish a preview onto this
-      # repo's own gh-pages - every trusted owner's repo already deploys deploy-preview/{branch}/
-      # to their OWN GitHub Pages via their own push-triggered build (the same assumption
-      # install.raweb.app already relies on for the install script), independent of any PR. So
-      # trusted users' preview URL is just constructed directly (see webappSection() below);
-      # only an untrusted fork needs this check, to catch the case where they haven't enabled
-      # Pages at all (the "GitHub Pages is not enabled" error, with setup instructions)
+          if [ "$desktop" = "success" ]; then
+            artifact_id=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/artifacts" \
+              --jq '[.artifacts[] | select((.name | startswith("Installer for RemoteApps & Devices")) and .expired == false)][0].id // empty')
+            if [ -n "$artifact_id" ]; then
+              echo "artifact_url=https://github.com/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/artifacts/${artifact_id}" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
       - name: Check fork's own GitHub Pages status
         id: fork_pages
         if: >-
@@ -206,9 +157,11 @@ jobs:
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           SERVER_CONCLUSION: ${{ steps.backend_jobs.outputs.server_conclusion }}
           DESKTOP_CONCLUSION: ${{ steps.backend_jobs.outputs.desktop_conclusion }}
+          DESKTOP_ARTIFACT_URL: ${{ steps.backend_jobs.outputs.artifact_url }}
           HEAD_OWNER: ${{ steps.context.outputs.head_owner }}
           HEAD_REPO: ${{ steps.context.outputs.head_repo }}
           HEAD_BRANCH: ${{ steps.context.outputs.head_branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           FORK_PAGES_ENABLED: ${{ steps.fork_pages.outputs.enabled }}
           FORK_PAGES_URL: ${{ steps.fork_pages.outputs.url }}
@@ -219,8 +172,8 @@ jobs:
             const marker = "<!-- DEPLOY-PREVIEW-COMMENT -->";
             const {
               EVENT_ACTION, IS_BACKEND, IS_FRONTEND, TRUSTED, CONCLUSION,
-              SERVER_CONCLUSION, DESKTOP_CONCLUSION,
-              HEAD_OWNER, HEAD_REPO, HEAD_BRANCH, RUN_URL,
+              SERVER_CONCLUSION, DESKTOP_CONCLUSION, DESKTOP_ARTIFACT_URL,
+              HEAD_OWNER, HEAD_REPO, HEAD_BRANCH, DEFAULT_BRANCH, RUN_URL,
               FORK_PAGES_ENABLED, FORK_PAGES_URL, DOCS_URL,
             } = process.env;
             const trusted = TRUSTED === "true";
@@ -232,7 +185,6 @@ jobs:
                 `<source media="(prefers-color-scheme: light)" srcset="https://install.raweb.app/buttons/${base}-light.svg">` +
                 `<img src="https://install.raweb.app/buttons/${base}-light.svg" alt="${label}" height="32">` +
                 `</picture>`;
-              // a disabled button is not actionable, so it is never wrapped in a link
               return disabled ? picture : `<a href="${href}" rel="nofollow">${picture}</a>`;
             };
 
@@ -258,7 +210,7 @@ jobs:
               if (SERVER_CONCLUSION === "success") {
                 return {
                   status: "Ready",
-                  button: btn("install-this-developer-build", installUrl, false),
+                  button: btn("install-this-developer-build-primary", installUrl, false),
                 };
               }
 
@@ -270,14 +222,17 @@ jobs:
 
             function desktopSection() {
               if (EVENT_ACTION === "requested") {
-                return { status: "Building...", button: "" };
+                return { status: "Building...", button: btn("install-this-developer-build", "#", true) };
               }
 
-              if (DESKTOP_CONCLUSION === "success") {
-                return { status: "Ready", button: "" };
+              if (DESKTOP_CONCLUSION === "success" && DESKTOP_ARTIFACT_URL) {
+                return { status: "Ready", button: btn("install-this-developer-build", DESKTOP_ARTIFACT_URL, false) };
               }
 
-              return { status: "Build failed", button: "" };
+              return {
+                status: DESKTOP_CONCLUSION === "success" ? "Ready" : "Build failed",
+                button: btn("install-this-developer-build", "#", true),
+              };
             }
 
             function webappSection() {
@@ -296,12 +251,7 @@ jobs:
               }
 
               if (trusted) {
-                // every trusted owner's repo (including this one, for the push/same-repo case)
-                // already deploys deploy-preview/{branch}/ to its OWN GitHub Pages via its own
-                // push-triggered build, independent of any PR - the same assumption
-                // install.raweb.app already relies on for the install script - so this is just
-                // constructed directly rather than downloaded/republished onto this repo's pages
-                const url = HEAD_BRANCH === "master"
+                const url = HEAD_BRANCH === DEFAULT_BRANCH
                   ? `https://${HEAD_OWNER}.github.io/${HEAD_REPO}/`
                   : `https://${HEAD_OWNER}.github.io/${HEAD_REPO}/deploy-preview/${HEAD_BRANCH}/`;
                 return {
@@ -329,32 +279,30 @@ jobs:
             <table width="100%">
               <thead>
                 <tr>
-                  <th align="left"></th>
-                  <th align="left">Status</th>
-                  <th align="right">Actions</th>
+                  <th colspan="3" align="left" valign="middle">Deployment status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>RAWeb (server)</td>
-                  <td><!--STATUS:SERVER-->${server.status}<!--/STATUS:SERVER--></td>
-                  <td align="right">
+                  <td valign="middle">RAWeb (server)</td>
+                  <td valign="middle"><!--STATUS:SERVER-->${server.status}<!--/STATUS:SERVER--></td>
+                  <td align="right" valign="middle">
                     <!--BUTTON:SERVER-->${server.button}<!--/BUTTON:SERVER-->
                     <!--LOGS:SERVER-->${server.logs}<!--/LOGS:SERVER-->
                   </td>
                 </tr>
                 <tr>
-                  <td>RemoteApps &amp; Devices (web app)</td>
-                  <td><!--STATUS:WEBAPP-->${webapp.status}<!--/STATUS:WEBAPP--></td>
-                  <td align="right">
+                  <td valign="middle">RemoteApps &amp; Devices (web app)</td>
+                  <td valign="middle"><!--STATUS:WEBAPP-->${webapp.status}<!--/STATUS:WEBAPP--></td>
+                  <td align="right" valign="middle">
                     <!--BUTTON:WEBAPP-->${webapp.button}<!--/BUTTON:WEBAPP-->
                     <!--LOGS:WEBAPP-->${webapp.logs}<!--/LOGS:WEBAPP-->
                   </td>
                 </tr>
                 <tr>
-                  <td>RemoteApps &amp; Devices (desktop app)</td>
-                  <td><!--STATUS:DESKTOP-->${desktop.status}<!--/STATUS:DESKTOP--></td>
-                  <td align="right">
+                  <td valign="middle">RemoteApps &amp; Devices (desktop app)</td>
+                  <td valign="middle"><!--STATUS:DESKTOP-->${desktop.status}<!--/STATUS:DESKTOP--></td>
+                  <td align="right" valign="middle">
                     <!--BUTTON:DESKTOP-->${desktop.button}<!--/BUTTON:DESKTOP-->
                     <!--LOGS:DESKTOP-->${desktop.logs}<!--/LOGS:DESKTOP-->
                   </td>

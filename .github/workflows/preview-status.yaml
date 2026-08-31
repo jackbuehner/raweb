@@ -38,7 +38,7 @@ jobs:
           if [ -z "$number" ]; then
             for attempt in 1 2 3 4 5; do
               number=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/pulls" \
-                --jq '[.[] | select(.state == "open")][0].number')
+                | jq -r --arg sha "$HEAD_SHA" '[.[] | select(.state == "open" and .head.sha == $sha)][0].number // empty')
               if [ -n "$number" ] && [ "$number" != "null" ]; then
                 break
               fi
@@ -90,12 +90,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_REPO_FULL_NAME: ${{ github.event.workflow_run.head_repository.full_name }}
           RUN_EVENT: ${{ github.event.workflow_run.event }}
           CURRENT_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
+          # branch names are not unique across forks, so head_repository must also match
           workflow_file=$(basename "$WORKFLOW_PATH")
-          latest_id=$(gh api "repos/${{ github.repository }}/actions/workflows/${workflow_file}/runs?branch=${HEAD_BRANCH}&event=${RUN_EVENT}&per_page=1" \
-            --jq '.workflow_runs[0].id // empty')
+          latest_id=$(gh api "repos/${{ github.repository }}/actions/workflows/${workflow_file}/runs?branch=${HEAD_BRANCH}&event=${RUN_EVENT}&per_page=10" \
+            | jq -r --arg repo "$HEAD_REPO_FULL_NAME" '[.workflow_runs[] | select(.head_repository.full_name == $repo)][0].id // empty')
 
           if [ -n "$latest_id" ] && [ "$latest_id" != "$CURRENT_RUN_ID" ]; then
             echo "A newer $RUN_EVENT run ($latest_id) exists for $WORKFLOW_PATH on $HEAD_BRANCH; this run ($CURRENT_RUN_ID) is stale, skipping." | tee -a "$GITHUB_STEP_SUMMARY"
@@ -219,8 +221,9 @@ jobs:
             workflow_file="${entry%%:*}"
             flag_name="${entry##*:}"
 
-            run=$(gh api "repos/${{ github.repository }}/actions/workflows/${workflow_file}/runs?branch=${HEAD_BRANCH}&event=${run_event}&per_page=1" \
-              --jq '.workflow_runs[0] // empty')
+            # branch names are not unique across forks, so head_repository must also match
+            run=$(gh api "repos/${{ github.repository }}/actions/workflows/${workflow_file}/runs?branch=${HEAD_BRANCH}&event=${run_event}&per_page=10" \
+              | jq --arg repo "${HEAD_OWNER}/${HEAD_REPO}" '[.workflow_runs[] | select(.head_repository.full_name == $repo)][0] // empty')
 
             if [ -z "$run" ]; then
               echo "No $run_event run found for $workflow_file on $HEAD_BRANCH; leaving that row untouched." >> "$GITHUB_STEP_SUMMARY"
@@ -245,6 +248,8 @@ jobs:
               jobs=$(gh api "repos/${{ github.repository }}/actions/runs/${run_id}/jobs" --jq '.jobs')
               server_conclusion=$(echo "$jobs" | jq -r '.[] | select(.name == "Build server (backend)") | .conclusion')
               desktop_conclusion=$(echo "$jobs" | jq -r '.[] | select(.name == "Build desktop app (Windows)") | .conclusion')
+              server_conclusion="${server_conclusion:-unknown}"
+              desktop_conclusion="${desktop_conclusion:-unknown}"
 
               if [ "$desktop_conclusion" = "success" ]; then
                 artifact_id=$(gh api "repos/${{ github.repository }}/actions/runs/${run_id}/artifacts" \

@@ -96,7 +96,7 @@ runs:
             const sourceUrl = `${installUrl}?source=force`;
             const sourceButtonVariant = trusted
               ? "install-this-developer-build-from-source-primary"
-              : "install-this-developer-build-from-source-danger";
+              : "install-this-untrusted-build-from-source-danger";
 
             if (EVENT_ACTION === "requested") {
               return {

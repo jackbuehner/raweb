@@ -126,17 +126,19 @@ runs:
           }
 
           function desktopSection() {
+            const desktopButtonVariant = trusted ? "install-this-developer-build" : "install-this-unsafe-build-danger";
+
             if (EVENT_ACTION === "requested") {
-              return { status: "⏳ Building", button: btn("install-this-developer-build", "#", true) };
+              return { status: "⏳ Building", button: btn(desktopButtonVariant, "#", true) };
             }
 
             if (DESKTOP_CONCLUSION === "success" && DESKTOP_ARTIFACT_URL) {
-              return { status: "✅ Success", button: btn("install-this-developer-build", DESKTOP_ARTIFACT_URL, false) };
+              return { status: "✅ Success", button: btn(desktopButtonVariant, DESKTOP_ARTIFACT_URL, false) };
             }
 
             return {
               status: DESKTOP_CONCLUSION === "success" ? "✅ Success" : "❌ Build failed",
-              button: btn("install-this-developer-build", "#", true),
+              button: btn(desktopButtonVariant, "#", true),
             };
           }
 

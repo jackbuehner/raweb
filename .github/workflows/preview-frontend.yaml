@@ -176,9 +176,6 @@ jobs:
 
     if: ${{ !github.event.act && github.event_name == 'push' }}
 
-    environment:
-      name: ${{ needs.build-and-preview.outputs.ref_name == github.event.repository.default_branch && 'Production' || 'Development' }}
-
     permissions:
       pages: write
       id-token: write

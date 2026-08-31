@@ -3,9 +3,9 @@ title: Enabling deploy previews on your fork
 nav_title: PR deploy previews
 ---
 
-When you open a pull request against RAWeb from a fork, the status comment on your PR can link to a live preview of the web app. RAWeb only publishes that preview directly for a couple of trusted maintainers. For everyone else, the link points at a preview hosted on your own fork's GitHub Pages instead.
+When you open a pull request against RAWeb from a fork, a deployment status table will be inserted at the bottom of your PR description. The table can link to a live preview of the web app. The preview must be hosted on your own fork's GitHub Pages.
 
-If your PR's status comment shows an error saying GitHub Pages is not enabled, follow these steps on your fork.
+If the deployment status table shows an error saying GitHub Pages is not enabled, follow these steps on your fork.
 
 ## 1. Allow Actions to run on your fork
 
@@ -24,9 +24,4 @@ GitHub disables Actions on forks by default.
 
 ## 3. Push again
 
-Push a new commit to your PR's branch (or re-run the workflow). The next build publishes to `https://<your-username>.github.io/raweb/`. Your PR's status comment will link to it once it is ready.
-
-<!-- test change: verifying pull_request path-filtered triggers fire for real diffs -->
-<!-- test2 -->
-<!-- test3 -->
-<!-- test4 -->
+Push a new commit to your PR's branch (or re-run the workflow). The next build will be published to `https://<your-username>.github.io/raweb/`. Your PR's deployment status table will link to it once it is ready.

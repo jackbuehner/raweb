@@ -190,7 +190,7 @@ runs:
             </thead>
             <tbody>
               <tr>
-                <td valign="middle">RAWeb (server)</td>
+                <td valign="middle">RAWeb<br/><i>server</i></td>
                 <td valign="middle"><!--STATUS:SERVER-->${server.status}<!--/STATUS:SERVER--></td>
                 <td align="right" valign="middle">
                   <!--BUTTON:SERVER-->${server.button}<!--/BUTTON:SERVER-->
@@ -198,7 +198,7 @@ runs:
                 </td>
               </tr>
               <tr>
-                <td valign="middle">RemoteApps &amp; Devices (web app)</td>
+                <td valign="middle">RemoteApps &amp; Devices<br/><i>web app</i></td>
                 <td valign="middle"><!--STATUS:WEBAPP-->${webapp.status}<!--/STATUS:WEBAPP--></td>
                 <td align="right" valign="middle">
                   <!--BUTTON:WEBAPP-->${webapp.button}<!--/BUTTON:WEBAPP-->
@@ -206,7 +206,7 @@ runs:
                 </td>
               </tr>
               <tr>
-                <td valign="middle">RemoteApps &amp; Devices (desktop app)</td>
+                <td valign="middle">RemoteApps &amp; Devices<br/><i>desktop app</i></td>
                 <td valign="middle"><!--STATUS:DESKTOP-->${desktop.status}<!--/STATUS:DESKTOP--></td>
                 <td align="right" valign="middle">
                   <!--BUTTON:DESKTOP-->${desktop.button}<!--/BUTTON:DESKTOP-->

@@ -86,10 +86,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
           CURRENT_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           workflow_file=$(basename "$WORKFLOW_PATH")
-          latest_id=$(gh api "repos/${{ github.repository }}/actions/workflows/${workflow_file}/runs?branch=${HEAD_BRANCH}&per_page=1" \
+          latest_id=$(gh api "repos/${{ github.repository }}/actions/workflows/${workflow_file}/runs?branch=${HEAD_BRANCH}&event=${RUN_EVENT}&per_page=1" \
             --jq '.workflow_runs[0].id // empty')
 
           if [ -n "$latest_id" ] && [ "$latest_id" != "$CURRENT_RUN_ID" ]; then
@@ -204,35 +205,35 @@ jobs:
 
               if (EVENT_ACTION === "requested") {
                 return {
-                  status: "Building...",
-                  button: btn("install-this-developer-build-from-source", `${installUrl}?source=force`, false),
+                  status: "Building",
+                  button: btn("install-this-developer-build-from-source-primary", `${installUrl}?source=force`, false),
                 };
               }
 
               if (SERVER_CONCLUSION === "success") {
                 return {
-                  status: "Ready",
+                  status: "Success",
                   button: btn("install-this-developer-build-primary", installUrl, false),
                 };
               }
 
               return {
-                status: "Build failed - you can still install from source",
-                button: btn("install-this-developer-build-from-source", `${installUrl}?source=force`, false),
+                status: "Build failed",
+                button: btn("install-this-developer-build-from-source-primary", `${installUrl}?source=force`, false),
               };
             }
 
             function desktopSection() {
               if (EVENT_ACTION === "requested") {
-                return { status: "Building...", button: btn("install-this-developer-build", "#", true) };
+                return { status: "Building", button: btn("install-this-developer-build", "#", true) };
               }
 
               if (DESKTOP_CONCLUSION === "success" && DESKTOP_ARTIFACT_URL) {
-                return { status: "Ready", button: btn("install-this-developer-build", DESKTOP_ARTIFACT_URL, false) };
+                return { status: "Success", button: btn("install-this-developer-build", DESKTOP_ARTIFACT_URL, false) };
               }
 
               return {
-                status: DESKTOP_CONCLUSION === "success" ? "Ready" : "Build failed",
+                status: DESKTOP_CONCLUSION === "success" ? "Success" : "Build failed",
                 button: btn("install-this-developer-build", "#", true),
               };
             }
@@ -240,14 +241,14 @@ jobs:
             function webappSection() {
               if (EVENT_ACTION === "requested") {
                 return {
-                  status: "Building...",
+                  status: "Building",
                   button: btn("view-preview-in-browser", "#", true),
                 };
               }
 
               if (CONCLUSION !== "success") {
                 return {
-                  status: "Build failed",
+                  status: "Build or deployment failed",
                   button: btn("view-preview-in-browser", "#", true),
                 };
               }
@@ -257,14 +258,14 @@ jobs:
                   ? `https://${HEAD_OWNER}.github.io/${HEAD_REPO}/`
                   : `https://${HEAD_OWNER}.github.io/${HEAD_REPO}/deploy-preview/${HEAD_BRANCH}/`;
                 return {
-                  status: "Ready",
+                  status: "Deployed",
                   button: btn("view-preview-in-browser", url, false),
                 };
               }
 
               if (FORK_PAGES_ENABLED === "true") {
                 return {
-                  status: "Ready (hosted on your fork's own GitHub Pages)",
+                  status: "Deployed",
                   button: btn("view-preview-in-browser", FORK_PAGES_URL, false),
                 };
               }
@@ -276,7 +277,7 @@ jobs:
             }
 
             function renderBody({ server, webapp, desktop }) {
-              return `${marker}
+              return `<!-- DO NOT EDIT CONTENT AFTER THIS LINE -->${marker}
             <div width="100%">
             <table width="100%">
               <thead>

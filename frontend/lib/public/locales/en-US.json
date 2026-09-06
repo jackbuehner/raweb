@@ -323,10 +323,21 @@
         "languageInvalid": "Language code must be a valid BCP 47 language tag."
       }
     },
-    "RDP": {
-      "StripSignatures": {
-        "title": "Strip RDP file signatures",
-        "help": "Controls whether the signature and signscope properties are retained in RDP files served by RAWeb. \n\nIf enabled, the signature and signscope properties are removed from RDP files served by RAWeb. \n\nIf disabled or not configured, RAWeb will not remove signature and signscope properties from RDP files. \n\nRemoving the signature and signscope properties allows users to download a resource as an RDP file and freely configure options such as Clipboard, Printers, and Local Drives in mstsc.exe before connecting.\n\nRemoving the signature and signscope properties also allows signed RDP files to be launched via rdp:// URLs."
+    "RDP.ManageSignatures": {
+      "title": "Manage RDP file signatures",
+      "help": "Controls whether RAWeb strips or adds the signature and signscope properties on RDP files it serves. \n\nIf enabled, choose a mode: \n- Do nothing: RDP files are served as-is. \n- Strip all signatures: the signature and signscope properties are removed from every RDP file. This also allows signed RDP files to be launched via rdp:// URLs and lets users freely configure options such as Clipboard, Printers, and Local Drives in mstsc.exe before connecting. \n- Sign unsigned: RDP files that do not already have a signature are signed with the configured certificate and already-signed files are left untouched. \n- Sign unsigned and re-sign signed: RDP files are always (re-)signed with the configured certificate. \n\nIf disabled, RDP files are served as-is (equivalent to 'Do nothing'). \n\nIf not configured, RDP files are served as-is. \n\nSigning requires a code-signing certificate in the LocalMachine\\My certificate store, usually generated or selected during installation. Specify its thumbprint below. If the certificate cannot be found or used, RDP files are served unsigned.",
+      "fields": {
+        "mode": "Mode",
+        "thumbprint": "Certificate thumbprint"
+      },
+      "modes": {
+        "doNothing": "Do nothing",
+        "stripAll": "Remove all existing signatures",
+        "signUnsigned": "Sign unsigned RDP files",
+        "signUnsignedAndResign": "Sign unsigned RDP files and re-sign existing signed RDP files"
+      },
+      "errors": {
+        "thumbprintEmpty": "A certificate thumbprint must be specified when the mode is 'Sign unsigned' or 'Sign unsigned and re-sign signed'."
       }
     }
   },

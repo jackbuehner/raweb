@@ -369,6 +369,12 @@
     "menu": {
       "connect": "Connect",
       "connectWith": "Connect with",
+      "viewCertificate": "View certificate",
+      "viewCertificatePickerTitle": "Select a terminal server to view the certificate for {{resourceTitle}}",
+      "viewCertificateError": {
+        "title": "Could not view the certificate for {{name}}",
+        "description": "The certificate used to sign this RDP file could not be read from its signature."
+      },
       "favAdd": "Add to favorites",
       "favRemove": "Remove from favorites",
       "props": "Properties",

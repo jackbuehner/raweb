@@ -2,6 +2,7 @@ import { buildManagedIconPath } from './buildManagedIconPath.ts';
 import { capitalize } from './capitalize.ts';
 import { combineTerminalServersModeEnabled } from './combineTerminalServersMode.ts';
 import { debounce } from './debounce.ts';
+import { extractRdpSignatureCertificate, RdpSignatureCertificateError } from './extractRdpSignatureCertificate.ts';
 import { fillEmptyMimeTypes } from './fillEmptyMimeTypes.ts';
 import { flatModeEnabled } from './flatMode.ts';
 import { flattenGroupedRdpProperties } from './flattenGroupedRdpProperties.ts';
@@ -54,6 +55,7 @@ export {
   capitalize,
   combineTerminalServersModeEnabled,
   debounce,
+  extractRdpSignatureCertificate,
   favoritesEnabled,
   fillEmptyMimeTypes,
   flatModeEnabled,
@@ -82,6 +84,7 @@ export {
   pickImageFile,
   prefixUserNS,
   PreventableEvent,
+  RdpSignatureCertificateError,
   unproxify as raw,
   readRdpFile,
   readTsResourceBundleFile,

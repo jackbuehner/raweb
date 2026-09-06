@@ -304,22 +304,24 @@
     return new Uint8Array(hex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []);
   }
 
+  function downloadBlob(blob: Blob, fileName: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function downloadRdpFile() {
     if (!resourceProperties.value) {
       return;
     }
     const flattenedProperties = flattenProperties(resourceProperties.value);
     const rdpFileString = generateRdpFileContents(flattenedProperties);
-
-    const blob = new Blob([rdpFileString], { type: 'application/x-rdp' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${name || 'connection'}.rdp`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([rdpFileString], { type: 'application/x-rdp' }), `${name || 'connection'}.rdp`);
   }
 
   const definedIntegerProperties = {

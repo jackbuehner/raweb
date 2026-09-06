@@ -1,0 +1,1 @@
+import{ut as e}from"./shared-yQedXK9S.js";export{e as RouterLink};

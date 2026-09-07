@@ -197,7 +197,7 @@
     },
     "RegistryApps.AdditionalProperties": {
       "title": "Add additional RDP file properties to RemoteApps listed in the registry",
-      "help": "Specify RDP file properties to be appended to RDP files generated for RemoteApps listed in the registry. \n\nIf enabled, the specified properties will be added to the RDP file. \n\nIf disabled or not configured, no additional properties will be added. \n\nThe properties should be specified exactly as they would appear in the RDP file. Specify one property at a time. The properties will be added to the RDP file as-is, so ensure they are valid RDP properties. \n\nDescriptions of properties are available at https://kimmknight.github.io/rdpfileeditor."
+      "help": "Specify RDP file properties to be appended to RDP files generated for RemoteApps listed in the registry. \n\nIf enabled, the specified properties will be added to the RDP file. \n\nIf disabled or not configured, no additional properties will be added. \n\nThe properties should be specified exactly as they would appear in the RDP file. Specify one property at a time. The properties will be added to the RDP file as-is, so ensure they are valid RDP properties. \n\nSome properties may not be appended to RDP files that were signed outside of RAWeb. \n\nDescriptions of properties are available at https://kimmknight.github.io/rdpfileeditor."
     },
     "Workspace.ShowMultiuserResourcesUserAndGroupNames": {
       "title": "Place multi-user resources in virtual folders with the associated user or group name",
@@ -414,6 +414,16 @@
         "raweb": "RAWeb"
       },
       "defaultPropertyValue": "Not set",
+      "locked": "This property cannot be edited because the RDP file is signed.",
+      "lockedInfoBar": {
+        "title": "Some properties are locked",
+        "message": "These properties cannot be edited because this RDP file is already signed. Editing them would invalidate the signature.",
+        "removeSignature": "Remove signature",
+        "removeSignatureConfirm": {
+          "title": "Remove the RDP file signature?",
+          "message": "The file served to users will be unsigned unless the \"Manage RDP signatures\" policy is configured to sign unsigned files. An unsigned or unexpectedly-modified RDP file may trigger security warnings in the Remote Desktop client, and the properties the signature covered will no longer be protected from tampering. \n\nThis action cannot be undone, but it will only be effective once you save changes to the resource. Are you sure you want to remove the signature?"
+        }
+      },
       "properties": {
         "administrative session__i": {
           "label": "Use an administrative session",

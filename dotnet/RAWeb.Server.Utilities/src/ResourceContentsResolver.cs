@@ -33,13 +33,15 @@ public sealed class ResourceContentsResolver {
   /// <exception cref="ArgumentException"></exception>
   /// <exception cref="Exception"></exception>
   public static ResourceResult ResolveResource(UserInformation userInfo, string path, ResourceOrigin from, HttpContext? httpContext = null) {
-    var result = ResolveResourceInternal(userInfo, path, from, httpContext);
+    var policies = PoliciesManager.RawPolicies;
+    var mode = policies.RdpManageSignaturesMode;
+
+    var allowEditsToSignedProperties = mode == RdpSignatureManagementMode.SignUnsignedAndResignSigned; // we can edit sign we will be re-signing the RDP file
+    var result = ResolveResourceInternal(userInfo, path, from, httpContext, allowEditsToSignedProperties);
     if (result is not ResolvedResourceResult resolvedResult) {
       return result;
     }
 
-    var policies = PoliciesManager.RawPolicies;
-    var mode = policies.RdpManageSignaturesMode;
     var content = resolvedResult.RdpFileContents;
 
     if (mode == RdpSignatureManagementMode.StripAll) {
@@ -66,7 +68,7 @@ public sealed class ResourceContentsResolver {
     return content == resolvedResult.RdpFileContents ? resolvedResult : resolvedResult with { RdpFileContents = content };
   }
 
-  private static ResourceResult ResolveResourceInternal(UserInformation userInfo, string path, ResourceOrigin from, HttpContext? httpContext = null) {
+  private static ResourceResult ResolveResourceInternal(UserInformation userInfo, string path, ResourceOrigin from, HttpContext? httpContext = null, bool allowSignedPropertyOverrides = false) {
     // if the path starts with App_Data/, remove that part
     if (path.StartsWith("App_Data/", StringComparison.OrdinalIgnoreCase)) {
       path = path.Substring("App_Data/".Length);
@@ -157,7 +159,7 @@ public sealed class ResourceContentsResolver {
       }
 
       // resolve the RDP file
-      return new ResolvedResourceResult(HttpStatusCode.OK, resource.ToRdpFileStringBuilder().ToString(), Path.GetFileNameWithoutExtension(path) + ".rdp");
+      return new ResolvedResourceResult(HttpStatusCode.OK, resource.ToRdpFileStringBuilder(allowSignedPropertyOverrides: allowSignedPropertyOverrides).ToString(), Path.GetFileNameWithoutExtension(path) + ".rdp");
     }
 
     // if it is a registry desktop, construct the RDP file from the registry
@@ -190,7 +192,7 @@ public sealed class ResourceContentsResolver {
       }
 
       // construct an RDP file from the values in the registry and return it
-      return new ResolvedResourceResult(HttpStatusCode.OK, RegistryReader.ConstructRdpFileFromRegistry(desktopKeyName, isDesktop: true, httpContext: httpContext), desktopKeyName + ".rdp");
+      return new ResolvedResourceResult(HttpStatusCode.OK, RegistryReader.ConstructRdpFileFromRegistry(desktopKeyName, isDesktop: true, httpContext: httpContext, allowSignedPropertyOverrides: allowSignedPropertyOverrides), desktopKeyName + ".rdp");
     }
 
     // ensure the path is a valid registry key name
@@ -206,6 +208,6 @@ public sealed class ResourceContentsResolver {
     }
 
     // construct an RDP file from the values in the registry and return it
-    return new ResolvedResourceResult(HttpStatusCode.OK, RegistryReader.ConstructRdpFileFromRegistry(appKeyName, httpContext: httpContext), appKeyName + ".rdp");
+    return new ResolvedResourceResult(HttpStatusCode.OK, RegistryReader.ConstructRdpFileFromRegistry(appKeyName, httpContext: httpContext, allowSignedPropertyOverrides: allowSignedPropertyOverrides), appKeyName + ".rdp");
   }
 }

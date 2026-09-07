@@ -1,7 +1,16 @@
 <script setup lang="ts">
-  import { Button, ContentDialog, Field, NavigationPane, Select, TextBlock, TextBox } from '$components';
+  import {
+    Button,
+    ContentDialog,
+    Field,
+    InfoBar,
+    NavigationPane,
+    Select,
+    TextBlock,
+    TextBox,
+  } from '$components';
   import { TreeItem } from '$components/NavigationView/NavigationTypes';
-  import { ManagedResourceEditDialog } from '$dialogs';
+  import { ManagedResourceEditDialog, showConfirm } from '$dialogs';
   import { useCoreDataStore } from '$stores';
   import {
     flattenGroupedRdpProperties,
@@ -22,7 +31,7 @@
   type GroupName = (typeof resourceGroupNames)[number];
 
   const { t } = useTranslation();
-  const { authUser, capabilities } = useCoreDataStore();
+  const { authUser, capabilities, rdpSignableProperties } = useCoreDataStore();
 
   const isSecureContext = window.isSecureContext;
 
@@ -50,10 +59,25 @@
   const { source, managementIdentifier } = _ || {};
 
   /**
+   * Whether the RDP file already has a signature. Signable properties (see
+   * `rdpSignableProperties`) cannot be edited while this is true since changing them would
+   * invalidate the existing signature.
+   */
+  const isSignedRdpFile = computed(() => !!resourceProperties.value?.signature?.['signature:s']);
+
+  /**
+   * Whether a given property key is locked because the RDP file is already signed and the
+   * property is covered by RDP file signing.
+   */
+  function isFieldLocked(key: string) {
+    return isSignedRdpFile.value && rdpSignableProperties.includes(key);
+  }
+
+  /**
    * Whether a property can be edited.
    */
   function isFieldEditable(key: string) {
-    return !disabledFields.includes(key) && capabilities.supportsCentralizedPublishing;
+    return !disabledFields.includes(key) && !isFieldLocked(key) && capabilities.supportsCentralizedPublishing;
   }
 
   // update resource properties when modelValue changes
@@ -294,6 +318,44 @@
     }, 300);
   }
 
+  /**
+   * Whether the currently displayed group has at least one property that is locked because the
+   * RDP file is already signed.
+   */
+  const currentGroupHasLockedFields = computed(() => {
+    if (
+      !isSignedRdpFile.value ||
+      !resourceProperties.value ||
+      !currentGroup.value ||
+      currentGroup.value === 'raweb'
+    ) {
+      return false;
+    }
+    return Object.keys(resourceProperties.value[currentGroup.value] || {}).some(isFieldLocked);
+  });
+
+  /**
+   * Removes the "signscope" and "signature" properties from the RDP file being edited
+   * after prompting for confirmation.
+   */
+  function removeSignature() {
+    showConfirm(
+      t('resource.props.lockedInfoBar.removeSignatureConfirm.title'),
+      t('resource.props.lockedInfoBar.removeSignatureConfirm.message'),
+      t('dialog.yes'),
+      t('dialog.cancel'),
+      { closeOnBackdropClick: true, emphasizeCancelButton: true }
+    )
+      .then((done) => {
+        if (resourceProperties.value) {
+          resourceProperties.value.signature['signscope:s'] = undefined;
+          resourceProperties.value.signature['signature:s'] = undefined;
+        }
+        done();
+      })
+      .catch(() => {}); // user cancelled
+  }
+
   function isUint8Array(value: any): value is Uint8Array {
     return value instanceof Uint8Array;
   }
@@ -437,6 +499,23 @@
             }}
           </TextBlock>
 
+          <InfoBar
+            v-if="mode !== 'view' && currentGroupHasLockedFields"
+            severity="caution"
+            :title="t('resource.props.lockedInfoBar.title')"
+            style="margin-bottom: 12px"
+          >
+            <TextBlock>{{ t('resource.props.lockedInfoBar.message') }}</TextBlock>
+            <br />
+            <Button
+              variant="hyperlink"
+              style="margin-left: -11px; margin-bottom: -6px"
+              @click="removeSignature"
+            >
+              {{ t('resource.props.lockedInfoBar.removeSignature') }}
+            </Button>
+          </InfoBar>
+
           <template v-if="currentGroup === 'raweb'">
             <Field>
               <TextBlock>{{ t('resource.props.type') }}</TextBlock>
@@ -537,8 +616,23 @@
                 .sort((a, b) => a.label.localeCompare(b.label))"
               :key="key"
             >
-              <TextBlock :title="description" style="cursor: help">
+              <TextBlock :title="description" style="cursor: help" class="property-label">
                 {{ label }}
+                <svg
+                  v-if="mode !== 'view' && isFieldLocked(key)"
+                  class="lock-icon"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  :aria-label="t('resource.props.lockedInfoBar.title')"
+                >
+                  <title>{{ t('resource.props.locked') }}</title>
+                  <path
+                    d="M12 2a4 4 0 0 1 4 4v2h1.75A2.25 2.25 0 0 1 20 10.25v9.5A2.25 2.25 0 0 1 17.75 22H6.25A2.25 2.25 0 0 1 4 19.75v-9.5A2.25 2.25 0 0 1 6.25 8H8V6a4 4 0 0 1 4-4Zm5.75 7.5H6.25a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75Zm-5.75 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-10A2.5 2.5 0 0 0 9.5 6v2h5V6A2.5 2.5 0 0 0 12 3.5Z"
+                    fill="currentColor"
+                  />
+                </svg>
               </TextBlock>
 
               <p v-if="mode === 'view'" class="current">
@@ -588,7 +682,7 @@
               <TextBox
                 v-else-if="key.endsWith('s')"
                 always-contrast-text
-                :disabled="key === 'signature:s' || !isFieldEditable(key)"
+                :disabled="key === 'signature:s' || key === 'signscope:s' || !isFieldEditable(key)"
                 :value="resourceProperties[currentGroup][key]?.toString()"
                 @update:value="
                   (newValue) => {
@@ -691,5 +785,16 @@
     margin: 0 0 calc(var(--inner-padding) / 2) 0;
     user-select: all;
     opacity: 0.84;
+  }
+
+  .property-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .lock-icon {
+    flex-shrink: 0;
+    opacity: 0.7;
   }
 </style>

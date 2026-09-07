@@ -28,9 +28,11 @@ If the configured certificate cannot be found or used (it expired or was removed
 
 If you change the web site's HTTPS binding to use a different certificate, you must edit the policy to have the correct certificate thumbprint. Additionally, you must make sure that the new certificate can be read by the application pool identity of the RAWeb installation. The easiest way to do this is to re-run the RAWeb installer and enable the option to sign RDP files.
 
-## Signed properties
+## Signed properties {#signed-properties}
 
-When signing is enabled, every signable RDP property is included in the signature if it is present in the file. There is no way to sign a file while excluding an individual property; the RDP signing format has no way to leave a recognized signable property present in the file but outside the signature, and thew Windows Remote Desktop client rejects such a file with the message, "This RDP File is corrupted".
+When signing is enabled, every signable RDP property is included in the signature if it is present in the file. There is no way to sign a file while excluding an individual property; the RDP signing format has no way to leave a recognized signable property present in the file but outside the signature, and the Windows Remote Desktop client rejects such a file with the message, "This RDP File is corrupted".
+
+For the same reason, if an RDP file that was provided to RAWeb was already signed, RAWeb will not add or change a signable property on that file unless the policy is set to **Sign unsigned and re-sign signed**. This applies both to the values RAWeb itself would normally set for a resource (such as its address or RemoteApp command line) and to properties added via the [Additional RemoteApp properties](/docs/policies/inject-rdp-properties/) policy. In the RDP file properties editor, a signable property on an already-signed file is disabled and is indicated by a lock icon.
 
 The following properties are signable and will be included in the signature if present:
 

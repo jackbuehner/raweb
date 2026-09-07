@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using RAWeb.Server.Management;
 
 namespace RAWeb.Server.Utilities;
 
@@ -20,61 +21,8 @@ namespace RAWeb.Server.Utilities;
 /// A property outside this list is never part of the signature.
 /// </summary>
 public static class RdpFileSigner {
-  /// <summary>
-  /// The fixed, ordered set of RDP properties that can be included in a signature, and the
-  /// display name used for each in the "signscope:s:" value.
-  /// <br /><br />
-  /// Properties must be present in this order in the "signscope:s:" value.
-  /// </summary>
-  private static readonly (string Prefix, string DisplayName)[] s_signableProperties = [
-    ("full address:s:", "Full Address"),
-    ("alternate full address:s:", "Alternate Full Address"),
-    ("pcb:s:", "PCB"),
-    ("use redirection server name:i:", "Use Redirection Server Name"),
-    ("server port:i:", "Server Port"),
-    ("negotiate security layer:i:", "Negotiate Security Layer"),
-    ("enablecredsspsupport:i:", "EnableCredSspSupport"),
-    ("disableconnectionsharing:i:", "DisableConnectionSharing"),
-    ("autoreconnection enabled:i:", "AutoReconnection Enabled"),
-    ("gatewayhostname:s:", "GatewayHostname"),
-    ("gatewayusagemethod:i:", "GatewayUsageMethod"),
-    ("gatewayprofileusagemethod:i:", "GatewayProfileUsageMethod"),
-    ("gatewaycredentialssource:i:", "GatewayCredentialsSource"),
-    ("support url:s:", "Support URL"),
-    ("promptcredentialonce:i:", "PromptCredentialOnce"),
-    ("require pre-authentication:i:", "Require pre-authentication"),
-    ("pre-authentication server address:s:", "Pre-authentication server address"),
-    ("alternate shell:s:", "Alternate Shell"),
-    ("shell working directory:s:", "Shell Working Directory"),
-    ("remoteapplicationprogram:s:", "RemoteApplicationProgram"),
-    ("remoteapplicationexpandworkingdir:s:", "RemoteApplicationExpandWorkingdir"),
-    ("remoteapplicationmode:i:", "RemoteApplicationMode"),
-    ("remoteapplicationguid:s:", "RemoteApplicationGuid"),
-    ("remoteapplicationname:s:", "RemoteApplicationName"),
-    ("remoteapplicationicon:s:", "RemoteApplicationIcon"),
-    ("remoteapplicationfile:s:", "RemoteApplicationFile"),
-    ("remoteapplicationfileextensions:s:", "RemoteApplicationFileExtensions"),
-    ("remoteapplicationcmdline:s:", "RemoteApplicationCmdLine"),
-    ("remoteapplicationexpandcmdline:s:", "RemoteApplicationExpandCmdLine"),
-    ("prompt for credentials:i:", "Prompt For Credentials"),
-    ("authentication level:i:", "Authentication Level"),
-    ("audiomode:i:", "AudioMode"),
-    ("redirectdrives:i:", "RedirectDrives"),
-    ("redirectprinters:i:", "RedirectPrinters"),
-    ("redirectcomports:i:", "RedirectCOMPorts"),
-    ("redirectsmartcards:i:", "RedirectSmartCards"),
-    ("redirectposdevices:i:", "RedirectPOSDevices"),
-    ("redirectclipboard:i:", "RedirectClipboard"),
-    ("devicestoredirect:s:", "DevicesToRedirect"),
-    ("drivestoredirect:s:", "DrivesToRedirect"),
-    ("loadbalanceinfo:s:", "LoadBalanceInfo"),
-    ("redirectdirectx:i:", "RedirectDirectX"),
-    ("rdgiskdcproxy:i:", "RDGIsKDCProxy"),
-    ("kdcproxyname:s:", "KDCProxyName"),
-    ("eventloguploadaddress:s:", "EventLogUploadAddress"),
-    ("enablerdsaadauth:i:", "EnableRdsAadAuth"),
-    ("redirectwebauthn:i:", "RedirectWebAuthn"),
-  ];
+
+  public static readonly (string Prefix, string DisplayName)[] SignableProperties = RdpSignableProperties.All;
 
   private static readonly string[] s_lineSeparators = ["\r\n", "\n"];
 
@@ -83,7 +31,7 @@ public static class RdpFileSigner {
   /// </summary>
   private static readonly Logger s_diagnosticsLogger = new("rdp-signing");
 
-  public static bool ContainsSignature(string content) => SplitLinesRaw(content).Any(line => line.StartsWith("signature:s:", StringComparison.OrdinalIgnoreCase));
+  public static bool ContainsSignature(string content) => RdpSignableProperties.ContainsSignature(content);
 
   /// <summary>
   /// Removes any existing "signscope:s:" and "signature:s:" lines from the RDP file contents.
@@ -227,7 +175,7 @@ public static class RdpFileSigner {
 
     var signLines = new List<string>();
     var signNames = new List<string>();
-    foreach (var (prefix, displayName) in s_signableProperties) {
+    foreach (var (prefix, displayName) in SignableProperties) {
       foreach (var setting in settings) {
         if (setting.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) {
           signNames.Add(displayName);

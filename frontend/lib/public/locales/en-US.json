@@ -371,10 +371,6 @@
       "connectWith": "Connect with",
       "viewCertificate": "View certificate",
       "viewCertificatePickerTitle": "Select a terminal server to view the certificate for {{resourceTitle}}",
-      "viewCertificateError": {
-        "title": "Could not view the certificate for {{name}}",
-        "description": "The certificate used to sign this RDP file could not be read from its signature."
-      },
       "favAdd": "Add to favorites",
       "favRemove": "Remove from favorites",
       "props": "Properties",
@@ -1040,6 +1036,30 @@
       "title": "Select a terminal server for {{resourceTitle}}",
       "propertiesTitle": "Select a terminal server to view properties for {{resourceTitle}}",
       "help": "What does this mean?"
+    },
+    "certificateViewer": {
+      "titlebar": "Certificate",
+      "noSignature": "This RDP file is not signed.",
+      "certificateInformation": "Certificate Information",
+      "purposesIntro": "This certificate is intended for the following purpose(s):",
+      "issuedTo": "Issued to",
+      "issuedBy": "Issued by",
+      "validFrom": "Valid from",
+      "validFromTo": "to",
+      "downloadCertificate": "Download certificate",
+      "extendedKeyUsage": {
+        "serverAuth": "Ensures the identity of a remote computer",
+        "clientAuth": "Proves your identity to a remote computer",
+        "codeSigning": "Ensures software came from software publisher, Protects software from alteration after publication",
+        "emailProtection": "Protects e-mail messages",
+        "timeStamping": "Allows data to be signed with the current time",
+        "ocspSigning": "Proves the identity of a certificate authority",
+        "encryptingFileSystem": "Allows data on disk to be encrypted"
+      },
+      "tabs": {
+        "overview": "Overview",
+        "details": "Details"
+      }
     },
     "methodPicker": {
       "title": "Select a connection method for {{resourceTitle}}",

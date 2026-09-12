@@ -1,11 +1,15 @@
 /**
- * Extracts the X.509 certificate bytes from a signed RDP file's `signature:s:`
- * value. The returned Uint8Array can be saved directly as a `.cer` file.
+ * Parses the CMS SignedData embedded in a signed RDP file's `signature:s:` value and returns the
+ * pkijs `Certificate` it carries. Shared by `extractRdpSignatureCertificate` (which just wants
+ * the raw bytes) and `getRdpSignatureCertificateInfo` (which wants the parsed fields).
+ *
+ * The `asn1js`/`pkijs` parsing libraries are only needed for this one feature, so they're
+ * dynamically imported here rather than bundled into the app's main chunk.
  *
  * Throws `RdpSignatureCertificateError` if the value cannot be parsed or does not embed a
  * certificate.
  */
-export async function extractRdpSignatureCertificate(signatureValue: string): Promise<Uint8Array> {
+export async function parseRdpSignatureCertificate(signatureValue: string) {
   if (!signatureValue || !signatureValue.trim()) {
     throw new RdpSignatureCertificateError('The RDP file signature is empty.');
   }
@@ -64,6 +68,19 @@ export async function extractRdpSignatureCertificate(signatureValue: string): Pr
     throw new RdpSignatureCertificateError('The embedded certificate is not a standard X.509 certificate.');
   }
 
+  return certificate;
+}
+
+/**
+ * Extracts the raw DER-encoded X.509 certificate bytes from a signed RDP file's `signature:s:`
+ * value (the value only - not including the `signature:s:` prefix). The returned bytes are a
+ * complete, standalone certificate and can be saved directly as a `.cer` file.
+ *
+ * Throws `RdpSignatureCertificateError` if the value cannot be parsed or does not embed a
+ * certificate.
+ */
+export async function extractRdpSignatureCertificate(signatureValue: string): Promise<Uint8Array> {
+  const certificate = await parseRdpSignatureCertificate(signatureValue);
   return new Uint8Array(certificate.toSchema().toBER(false));
 }
 
@@ -80,6 +97,4 @@ function decodeBase64(base64: string): Uint8Array {
   return bytes;
 }
 
-class RdpSignatureCertificateError extends Error {}
-
-export { RdpSignatureCertificateError };
+export class RdpSignatureCertificateError extends Error {}

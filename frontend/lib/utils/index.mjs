@@ -2,13 +2,18 @@ import { buildManagedIconPath } from './buildManagedIconPath.ts';
 import { capitalize } from './capitalize.ts';
 import { combineTerminalServersModeEnabled } from './combineTerminalServersMode.ts';
 import { debounce } from './debounce.ts';
-import { extractRdpSignatureCertificate, RdpSignatureCertificateError } from './extractRdpSignatureCertificate.ts';
+import {
+  extractRdpSignatureCertificate,
+  parseRdpSignatureCertificate,
+  RdpSignatureCertificateError,
+} from './extractRdpSignatureCertificate.ts';
 import { fillEmptyMimeTypes } from './fillEmptyMimeTypes.ts';
 import { flatModeEnabled } from './flatMode.ts';
 import { flattenGroupedRdpProperties } from './flattenGroupedRdpProperties.ts';
 import { generateRdpFileContents } from './generateRdpFileContents.ts';
 import { generateRdpUri } from './generateRdpUri.ts';
 import { getAppsAndDevices } from './getAppsAndDevices.ts';
+import { getRdpSignatureCertificateDetails } from './getRdpSignatureCertificateDetails.ts';
 import { groupResourceProperties, groupNames as resourceGroupNames } from './groupResourceProperties.ts';
 import { hashString } from './hashString.ts';
 import { hidePortsEnabled } from './hidePorts.ts';
@@ -63,6 +68,7 @@ export {
   generateRdpFileContents,
   generateRdpUri,
   getAppsAndDevices,
+  getRdpSignatureCertificateDetails,
   groupResourceProperties,
   hashString,
   hidePortsEnabled,
@@ -79,6 +85,7 @@ export {
   openInfoBarPopup,
   openSignInPagePopup,
   parseRdpFileText,
+  parseRdpSignatureCertificate,
   pascalCaseToCamelCase,
   pickAnyResourceFile,
   pickImageFile,

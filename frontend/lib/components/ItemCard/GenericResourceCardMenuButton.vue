@@ -3,16 +3,14 @@
   import PropertiesDialog from '$components/ItemCard/PropertiesDialog.vue';
   import TerminalServerPickerDialog from '$components/ItemCard/TerminalServerPickerDialog.vue';
   import { MenuFlyout, MenuFlyoutDivider, MenuFlyoutItem } from '$components/MenuFlyout';
-  import { showConfirm } from '$dialogs';
+  import { CertificateViewerDialog, showConfirm } from '$dialogs';
   import { useCoreDataStore, usePopupWindow } from '$stores';
   import {
-    extractRdpSignatureCertificate,
     favoritesEnabled,
     generateRdpUri,
     openConnectionsInNewWindowEnabled,
     openHelpPopup,
     raw,
-    RdpSignatureCertificateError,
     simpleModeEnabled,
     useFavoriteResourceTerminalServers,
   } from '$utils';
@@ -70,6 +68,10 @@
 
   const certTsPickerDialog = useTemplateRef<typeof TerminalServerPickerDialog>('certTsPickerDialog');
   const openCertTsPickerDialog = computed(() => raw(certTsPickerDialog.value)?.openDialog);
+
+  const certificateViewerDialog = useTemplateRef<typeof CertificateViewerDialog>('certificateViewerDialog');
+  const openCertificateViewerDialog = computed(() => raw(certificateViewerDialog.value)?.openDialog);
+  const certificateViewerSignatureValue = ref<string>();
 
   const propertiesDialog = useTemplateRef<typeof PropertiesDialog>('propertiesDialog');
   const openPropertiesDialog = computed(() => raw(propertiesDialog.value)?.openDialog);
@@ -241,46 +243,19 @@
   const signedHosts = computed(() => resource.hosts.filter((host) => host.rdp?.signature));
   const canDownloadSigningCertificate = computed(() => canUseDialogs && signedHosts.value.length > 0);
 
-  function downloadSigningCertificate() {
+  function viewSigningCertificate() {
     openCertTsPickerDialog.value?.();
   }
 
-  /**
-   * Extracts the X.509 certificate embedded in the signature:b RDP file property for
-   * this resource and downloads it as a .cer file.
-   */
-  async function downloadSigningCertificateForHost(terminalServerId: string) {
+  function viewSigningCertificateForHost(terminalServerId: string) {
     const host = signedHosts.value.find((candidate) => candidate.id === terminalServerId);
     const signatureValue = host?.rdp?.signature;
     if (typeof signatureValue !== 'string') {
       return;
     }
 
-    try {
-      const certificateBytes = await extractRdpSignatureCertificate(signatureValue);
-      const blob = new Blob([new Uint8Array(certificateBytes)], { type: 'application/x-x509-ca-cert' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${resource.title}.cer`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error(error);
-      const message =
-        error instanceof RdpSignatureCertificateError
-          ? error.message
-          : t('resource.menu.viewCertificateError.description');
-      await showConfirm(
-        t('resource.menu.viewCertificateError.title', { name: resource.title }),
-        message,
-        '',
-        t('dialog.ok'),
-        { closeOnBackdropClick: true }
-      ).catch(() => null);
-    }
+    certificateViewerSignatureValue.value = signatureValue;
+    openCertificateViewerDialog.value?.();
   }
 </script>
 
@@ -374,7 +349,7 @@
         </MenuFlyoutItem>
       </template>
       <MenuFlyoutDivider></MenuFlyoutDivider>
-      <MenuFlyoutItem @click="downloadSigningCertificate" v-if="canDownloadSigningCertificate">
+      <MenuFlyoutItem @click="viewSigningCertificate" v-if="canDownloadSigningCertificate">
         {{ t('resource.menu.viewCertificate') }}
         <template v-slot:icon>
           <svg width="24" height="24" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -464,7 +439,14 @@
     :hosts="signedHosts"
     :title="t('resource.menu.viewCertificatePickerTitle', { resourceTitle: resource.title })"
     ref="certTsPickerDialog"
-    @close="({ selectedTerminalServer }) => downloadSigningCertificateForHost(selectedTerminalServer)"
+    @close="({ selectedTerminalServer }) => viewSigningCertificateForHost(selectedTerminalServer)"
+  />
+
+  <CertificateViewerDialog
+    v-if="menuInteracted && canDownloadSigningCertificate"
+    :signature-value="certificateViewerSignatureValue"
+    :file-name="resource.title"
+    ref="certificateViewerDialog"
   />
 
   <PropertiesDialog

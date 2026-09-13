@@ -1,0 +1,1 @@
+import{ft as e}from"./shared-BhhO-oUi.js";export{e as RouterLink};

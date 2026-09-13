@@ -120,9 +120,10 @@ public static class ReleaseSource {
       results.Add(BranchRelease(repository, headRepository, branch, title, updatedAt));
     }
 
-    if (seen.Add($"{repository}#next") && BranchExists(repository, "next")) {
-      results.Add(BranchRelease(repository, repository, "next", "next", DateTimeOffset.UtcNow));
+    if (seen.Add($"{repository}#next") && TryGetBranchUpdatedAt(repository, "next", out var nextUpdatedAt)) {
+      results.Add(BranchRelease(repository, repository, "next", "Unreleased code (next branch)", nextUpdatedAt));
     }
+
 
     return results;
   }
@@ -145,12 +146,21 @@ public static class ReleaseSource {
     );
   }
 
-  private static bool BranchExists(string repository, string branch) {
+  /// <summary>
+  /// Looks up when a branch's latest commit was made.
+  /// If the branch does not exist, or the repository is not reachable, this
+  /// method returns false and sets updatedAt to DateTimeOffset.MinValue.
+  /// </summary>
+  private static bool TryGetBranchUpdatedAt(string repository, string branch, out DateTimeOffset updatedAt) {
     try {
-      HttpHelper.GetString($"https://api.github.com/repos/{repository}/branches/{Uri.EscapeDataString(branch)}");
+      var json = HttpHelper.GetString($"https://api.github.com/repos/{repository}/branches/{Uri.EscapeDataString(branch)}");
+      var commit = JObject.Parse(json)["commit"]?["commit"];
+      var date = (DateTimeOffset?)commit?["committer"]?["date"] ?? (DateTimeOffset?)commit?["author"]?["date"];
+      updatedAt = date ?? DateTimeOffset.MinValue;
       return true;
     }
     catch (WebException) {
+      updatedAt = DateTimeOffset.MinValue;
       return false;
     }
   }

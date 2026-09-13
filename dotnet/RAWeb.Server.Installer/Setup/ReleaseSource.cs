@@ -121,9 +121,14 @@ public static class ReleaseSource {
     }
 
     if (seen.Add($"{repository}#next") && TryGetBranchUpdatedAt(repository, "next", out var nextUpdatedAt)) {
-      results.Add(BranchRelease(repository, repository, "next", "Unreleased code (next branch)", nextUpdatedAt));
+      results.Add(BranchRelease(repository, repository, "next", "Next developer release (next branch)", nextUpdatedAt));
     }
 
+    const string upstreamOwner = "kimmknight";
+    var upstreamRepository = $"{upstreamOwner}/{repositoryName}";
+    if (seen.Add($"{upstreamRepository}#master") && TryGetBranchUpdatedAt(upstreamRepository, "master", out var masterUpdatedAt)) {
+      results.Add(BranchRelease(repository, upstreamRepository, "master", "Current developer release (master branch)", masterUpdatedAt));
+    }
 
     return results;
   }

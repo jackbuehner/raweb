@@ -1,0 +1,1 @@
+import{ft as e}from"./shared-CoNEFrLL.js";export{e as RouterLink};

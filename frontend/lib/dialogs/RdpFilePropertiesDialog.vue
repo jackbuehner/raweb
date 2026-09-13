@@ -70,7 +70,11 @@
    * property is covered by RDP file signing.
    */
   function isFieldLocked(key: string) {
-    return isSignedRdpFile.value && rdpSignableProperties.includes(key);
+    return (
+      isSignedRdpFile.value &&
+      // if we do not have a list of signable properties, assume all properties are signable and lock them
+      (!rdpSignableProperties || rdpSignableProperties.includes(key))
+    );
   }
 
   /**

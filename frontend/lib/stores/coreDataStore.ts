@@ -103,7 +103,7 @@ interface State extends EmptyState {
    * The RDP file property keys (e.g. `full address:s`) that cannot be edited
    * if the RDP file is signed.
    */
-  rdpSignableProperties: string[];
+  rdpSignableProperties?: string[];
 }
 
 interface EmptyState {

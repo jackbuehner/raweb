@@ -43,7 +43,6 @@ public partial class LegacySetupPage : WizardPage {
     }
 
     CanGoNext = true;
-    ShowBack = false;
   }
 
   public override async Task<bool> OnNextAsync() {

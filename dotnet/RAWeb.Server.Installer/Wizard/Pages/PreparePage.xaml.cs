@@ -22,6 +22,13 @@ public partial class PreparePage : WizardPage {
   private bool _completed;
   private bool _buildingFromSource;
 
+  /// <summary>
+  /// Identifies whatever was selected on VersionPage when this page last finished preparing it, so
+  /// that stepping back and choosing a different release/local path/branch triggers a re-prepare
+  /// instead of reusing the previous one.
+  /// </summary>
+  private (ReleaseAsset? Asset, string? LocalPath, string? PreviewOwner, string? PreviewBranch) _preparedSource;
+
   public PreparePage() {
     InitializeComponent();
     ContentFrame.Navigate(_statusView);
@@ -38,6 +45,13 @@ public partial class PreparePage : WizardPage {
   public override bool IsBusy => _isRunning;
 
   public override void OnEnter(WizardNavigationDirection direction) {
+    // if the user went back to VersionPage and picked something else, the previous download/build
+    // is stale and must be redone rather than reused.
+    if (_completed && CurrentSource() != _preparedSource) {
+      _completed = false;
+      State.CleanUpScratch();
+    }
+
     if (_completed) {
       if (direction == WizardNavigationDirection.Forward) {
         RaiseRequestNext();
@@ -57,6 +71,9 @@ public partial class PreparePage : WizardPage {
     _statusView.ClearError();
     _ = PrepareAsync();
   }
+
+  private (ReleaseAsset? Asset, string? LocalPath, string? PreviewOwner, string? PreviewBranch) CurrentSource() =>
+    (State.SelectedAsset, State.LocalSourcePath, State.PreviewOwner, State.PreviewBranch);
 
   private async Task PrepareAsync() {
     _isRunning = true;
@@ -138,6 +155,7 @@ public partial class PreparePage : WizardPage {
 
   private void Complete() {
     _completed = true;
+    _preparedSource = CurrentSource();
     _statusView.SetStatus("Ready", "");
     RaiseRequestNext();
   }

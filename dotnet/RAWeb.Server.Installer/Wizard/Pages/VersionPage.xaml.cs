@@ -44,6 +44,11 @@ public partial class VersionPage : WizardPage {
       return;
     }
 
+    // when the welcome page is suppressed, going back to it would just bounce the user right back
+    // here (it auto-advances again), so there is nowhere useful for Back to go.
+    ShowBack = !State.NoWelcome;
+    RaiseNavigationStateChanged();
+
     UpdateCanGoNext();
 
     if (!_releasesLoaded) {
@@ -133,7 +138,7 @@ public partial class VersionPage : WizardPage {
   private void FailPinned(Exception exception) {
     _pinnedFailed = true;
     LoadingRing.IsActive = false;
-    ShowBack = true;
+    ShowBack = !State.NoWelcome;
     PinnedErrorBar.Message = $"{exception.Message} Choose a version manually below instead.";
     PinnedErrorBar.IsOpen = true;
     PickerPanel.Visibility = Visibility.Visible;

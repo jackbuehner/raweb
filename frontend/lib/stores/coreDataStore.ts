@@ -45,6 +45,7 @@ interface State extends EmptyState {
     hidePortsEnabled?: boolean | null;
     iconBackgroundsEnabled?: boolean | null;
     simpleModeEnabled?: boolean | null;
+    soundEffectsEnabled?: boolean | null;
     passwordChangeEnabled?: boolean | null;
     openConnectionsInNewWindowEnabled?: boolean | null;
     anonymousAuthentication?: 'never' | 'always' | 'allow';
@@ -133,6 +134,7 @@ const _srr_data = {
     hidePortsEnabled: false,
     iconBackgroundsEnabled: false,
     simpleModeEnabled: false,
+    soundEffectsEnabled: null,
     passwordChangeEnabled: false,
     anonymousAuthentication: 'never',
     signedInUserGlobalAlerts: null,

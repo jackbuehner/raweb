@@ -77,6 +77,11 @@
       "desc": "Daha iyi görünürlük için uygulama ve masaüstü simgelerine dolgulu kare bir arka plan ekleyin.",
       "switch": "Simge arka planlarını etkinleştir"
     },
+    "soundEffects": {
+      "title": "Ses efektleri",
+      "desc": "Düğmeleri çalıştırma, menüleri açma ve gezinme gibi işlemler için kısa ses efektleri çal.",
+      "switch": "Ses efektlerini etkinleştir"
+    },
     "combineTerminalServersMode": {
       "title": "Uygulamaları sunucular arasında birleştirin",
       "desc": "Barındırıldıkları terminal sunucularının sayısına bakılmaksızın her uygulama için yalnızca bir simge gösterin. Birden fazla terminal sunucusu mevcutsa, uygulama başlatılırken bir tanesinin seçilmesine yönelik bir istem gösterilecektir.",

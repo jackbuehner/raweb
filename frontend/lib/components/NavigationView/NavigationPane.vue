@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { AnimatedIcon, IconButton, ListItem, TreeView } from '$components';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { provide, ref } from 'vue';
   import { useRouter } from 'vue-router';
   import { TreeItem } from './NavigationTypes.ts';
@@ -41,12 +42,14 @@
 
   function goBack() {
     if (previousPage.value) {
+      ElementSoundPlayer.play(ElementSoundKind.GoBack);
       router.back();
     }
   }
 
   function toggleCollapse() {
     collapsed.value = !collapsed.value;
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
   }
 </script>
 

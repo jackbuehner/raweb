@@ -1,13 +1,15 @@
 <script setup lang="ts">
   import { Button, InfoBar, ProgressRing, TextBlock, TextBox, Titlebar } from '$components';
   import { useCoreDataStore } from '$stores';
-  import { registerServiceWorker, removeSplashScreen } from '$utils';
+  import { registerServiceWorker, removeSplashScreen, useGlobalFocusSound } from '$utils';
   import { useTranslation } from 'i18next-vue';
   import { computed, onMounted, ref, watchEffect } from 'vue';
   import { i18nextPromise } from './i18n';
 
   const { appBase, envMachineName, iisBase } = useCoreDataStore();
   const { t } = useTranslation();
+
+  useGlobalFocusSound();
 
   const sslError = ref(false);
   const returnUrl = ref<string | null>(null);

@@ -9,6 +9,7 @@
     iconBackgroundsEnabled,
     openConnectionsInNewWindowEnabled,
     simpleModeEnabled,
+    soundEffectsEnabled,
     useFavoriteResources,
   } from '$utils';
   import { prefixUserNS } from '$utils/prefixUserNS';
@@ -332,6 +333,19 @@
   </section>
   <section>
     <div class="section-title-row">
+      <TextBlock variant="subtitle">{{ t('settings.soundEffects.title') }}</TextBlock>
+    </div>
+    <div class="favorites">
+      <TextBlock>
+        {{ t('settings.soundEffects.desc') }}
+      </TextBlock>
+      <ToggleSwitch v-model="soundEffectsEnabled" :disabled="isDefinedPolicy('soundEffectsEnabled')">
+        {{ t('settings.soundEffects.switch') }}
+      </ToggleSwitch>
+    </div>
+  </section>
+  <section>
+    <div class="section-title-row">
       <TextBlock variant="subtitle">{{ t('settings.combineTerminalServersMode.title') }}</TextBlock>
     </div>
     <div class="favorites">
@@ -481,7 +495,7 @@
           <div class="button-row">
             <ContentDialog size="max" v-if="update.details" :title="update.details.name">
               <template #opener="{ open }">
-                <Button @click="() => open()">View details</Button>
+                <Button @click="() => open()" sound="none">View details</Button>
               </template>
               <div class="gfm" v-html="update.details.notes"></div>
               <template v-slot:footer="{ close }">

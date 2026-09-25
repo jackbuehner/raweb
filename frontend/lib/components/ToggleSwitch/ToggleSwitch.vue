@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { useTemplateRef } from 'vue';
 
   const { disabled, ...restProps } = defineProps<{
@@ -9,6 +10,7 @@
 
   function update() {
     model.value = !model.value;
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
   }
 
   const inputRef = useTemplateRef('inputRef');

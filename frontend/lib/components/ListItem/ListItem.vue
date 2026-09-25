@@ -2,6 +2,7 @@
   import { IconAnimationHandle, registerIconAnimationKey } from '$components/AnimatedIcon/iconAnimation';
   import { IN_SELECTION_TRACK_KEY } from '$components/Navigation/AnimatedNavigationItemIndicator/keys';
   import TextBlock from '$components/TextBlock/TextBlock.vue';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { computed, inject, provide, useAttrs } from 'vue';
 
   const {
@@ -52,6 +53,10 @@
   function release() {
     iconEndAnimation?.release();
   }
+  function playInvokeSound() {
+    if (disabled) return;
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
+  }
 </script>
 
 <template>
@@ -76,6 +81,7 @@
     @pointerenter="onPointerEnter"
     @pointerleave="release"
     @pointercancel="release"
+    @click="playInvokeSound"
     :="restProps"
   >
     <slot name="icon"></slot>

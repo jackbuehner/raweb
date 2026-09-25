@@ -1,4 +1,7 @@
 <script setup lang="ts">
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
+  import { onMounted, onUnmounted, ref, useTemplateRef, watchEffect } from 'vue';
+
   const { disabled, alwaysContrastText } = defineProps<{
     disabled?: boolean;
     /** Use the visible text styles even when disabled. */
@@ -7,14 +10,48 @@
 
   const model = defineModel({ default: '' });
 
+  // play sound whenever the select is opened or closed
+  const element = useTemplateRef<HTMLSelectElement>('select');
+  const isOpen = ref(element.value?.matches(':open') ?? false);
+  const checkState = () => {
+    requestAnimationFrame(() => {
+      if (element.value) {
+        isOpen.value = element.value.matches(':open');
+      }
+    });
+  };
+  onMounted(() => {
+    const el = element.value;
+    if (el) {
+      el.addEventListener('click', checkState);
+      el.addEventListener('blur', checkState);
+      el.addEventListener('change', checkState);
+      el.addEventListener('keydown', checkState);
+    }
+  });
+  onUnmounted(() => {
+    const el = element.value;
+    if (el) {
+      el.removeEventListener('click', checkState);
+      el.removeEventListener('blur', checkState);
+      el.removeEventListener('change', checkState);
+      el.removeEventListener('keydown', checkState);
+    }
+  });
+  watchEffect(() => {
+    ElementSoundPlayer.play(isOpen.value ? ElementSoundKind.Show : ElementSoundKind.Hide);
+  });
+
   function update(event: Event) {
     const newValue = (event.target as HTMLSelectElement).value;
     model.value = newValue;
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
   }
 </script>
 
 <template>
   <select
+    ref="select"
     :disabled="disabled"
     :value="model"
     @change="update"

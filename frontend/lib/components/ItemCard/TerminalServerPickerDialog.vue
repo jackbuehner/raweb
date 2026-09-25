@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { Button, ContentDialog, PickerItem } from '$components';
-  import { useCoreDataStore } from '$stores';
+  import { useCoreDataStore, useDialogStackStore } from '$stores';
   import { generateRdpFileContents, openHelpPopup, raw } from '$utils';
   import { computed, ref, useTemplateRef } from 'vue';
 
@@ -33,6 +33,7 @@
   }>();
 
   const { docsUrl } = useCoreDataStore();
+  const dialogStackStore = useDialogStackStore();
 
   const tsPickerDialog = useTemplateRef<typeof ContentDialog>('tsPickerDialog');
   const openDialog = computed(() => raw(tsPickerDialog.value)?.open);
@@ -45,12 +46,18 @@
   const selectedTerminalServer = ref(availableHosts.value[0]?.id || '');
 
   function submit() {
-    closeDialog.value?.();
-
     const foundHost = props.resource.hosts.find((host) => host.id === selectedTerminalServer.value);
-    if (!foundHost) return;
+    if (!foundHost) {
+      closeDialog.value?.();
+      return;
+    }
 
     // TODO: add functionality for saving a preference for this app/desktop
+
+    // if the close handler below opens another dialog (e.g. the properties
+    // dialog), the dialog stack will grow, and we should not play this dialog's
+    // close sound so that only the newly opened dialog's show sound plays
+    const stackSizeBeforeEmit = dialogStackStore.stack.length;
 
     emit('close', {
       selectedTerminalServer: selectedTerminalServer.value,
@@ -62,6 +69,9 @@
         ),
       getRdpFileContents: () => buildRdpFile(foundHost),
     });
+
+    const anotherDialogOpened = dialogStackStore.stack.length > stackSizeBeforeEmit;
+    closeDialog.value?.(anotherDialogOpened ? { silent: true } : undefined);
   }
 
   function handleSubmitKeydown(evt: KeyboardEvent) {

@@ -1,10 +1,7 @@
 <script setup lang="ts">
-  const {
-    name,
-    value,
-    disabled = false,
-    ...restProps
-  } = defineProps<{
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
+
+  const { name, value, disabled = false } = defineProps<{
     name?: string;
     value: string;
     disabled?: boolean;
@@ -18,6 +15,7 @@
 
   function handleChange(event: Event) {
     const target = event.target as HTMLInputElement;
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
     const delay = parseFloat(
       getComputedStyle(document.documentElement).getPropertyValue('--wui-control-normal-duration')
     );

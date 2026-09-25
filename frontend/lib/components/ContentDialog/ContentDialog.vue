@@ -2,7 +2,7 @@
   import { IconButton, ProgressRing } from '$components';
   import TextBlock from '$components/TextBlock/TextBlock.vue';
   import { useCoreDataStore, useDialogStackStore } from '$stores';
-  import { PreventableEvent } from '$utils';
+  import { ElementSoundKind, ElementSoundPlayer, PreventableEvent } from '$utils';
   import { useTranslation } from 'i18next-vue';
   import {
     computed,
@@ -104,6 +104,7 @@
       dialog.value.showModal();
       isOpen.value = true;
       dialogStackStore.pushDialog(id, acrylicBackdrop);
+      ElementSoundPlayer.play(ElementSoundKind.Show);
 
       emit('afterOpen');
     }
@@ -117,7 +118,7 @@
     }
   );
 
-  function close() {
+  function close(options?: { silent?: boolean }) {
     if (dialog.value && isOpen.value) {
       emit('beforeClose');
 
@@ -131,6 +132,9 @@
 
         isOpen.value = false;
         dialogStackStore.removeDialog(id);
+        if (!options?.silent) {
+          ElementSoundPlayer.play(ElementSoundKind.Hide);
+        }
 
         emit('afterClose');
       };

@@ -84,6 +84,11 @@
       "desc": " Add a square background with padding to app and desktop icons for better visibility.",
       "switch": "Enable icon backgrounds"
     },
+    "soundEffects": {
+      "title": "Sound effects",
+      "desc": "Play short sound effects for actions like invoking buttons, opening menus, and navigating.",
+      "switch": "Enable sound effects"
+    },
     "combineTerminalServersMode": {
       "title": "Combine apps across servers",
       "desc": "Show only one icon for each app, regardless of the number of terminal servers they are hosted on. If multiple terminal servers are available, a prompt to select one will be shown when launching the app.",

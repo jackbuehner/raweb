@@ -2,7 +2,7 @@
   import { Button, TextBlock } from '$components';
   import { requestCredentials as _requestCredentials, showConfirm } from '$dialogs';
   import { useCoreDataStore } from '$stores';
-  import { debounce, openHelpPopup, openSignInPagePopup } from '$utils';
+  import { debounce, ElementSoundKind, ElementSoundPlayer, openHelpPopup, openSignInPagePopup } from '$utils';
   import Guacamole from 'guacamole-common-js';
   import { useTranslation } from 'i18next-vue';
   import { storeToRefs } from 'pinia';
@@ -25,6 +25,7 @@
 
   function goBackOrClose() {
     route.meta.isDeviceCancelButton = true;
+    ElementSoundPlayer.play(ElementSoundKind.GoBack);
     if (window.opener && window.opener !== window) {
       window.close(); // fails unless the window was opened by RAWeb's javascript
     } else {

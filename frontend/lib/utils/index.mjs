@@ -2,6 +2,7 @@ import { buildManagedIconPath } from './buildManagedIconPath.ts';
 import { capitalize } from './capitalize.ts';
 import { combineTerminalServersModeEnabled } from './combineTerminalServersMode.ts';
 import { debounce } from './debounce.ts';
+import { ElementSoundKind, ElementSoundPlayer, ElementSoundPlayerState } from './ElementSoundPlayer.ts';
 import {
   extractRdpSignatureCertificate,
   parseRdpSignatureCertificate,
@@ -43,6 +44,7 @@ import { removeSplashScreen, restoreSplashScreen } from './removeSplashScreen.ts
 import { ResourceManagementSchemas } from './schemas/ResourceManagementSchemas.ts';
 import { SecurityManagementSchemas } from './schemas/SecurityManagementSchemas.ts';
 import { simpleModeEnabled } from './simpleMode.ts';
+import { soundEffectsEnabled } from './soundEffects.ts';
 import { toKebabCase } from './toKebabCase.ts';
 import { unproxify } from './unproxify.ts';
 import { useElementSize } from './useElementSize.ts';
@@ -51,6 +53,7 @@ import {
   useFavoriteResources,
   useFavoriteResourceTerminalServers,
 } from './useFavoriteResources.ts';
+import { useGlobalFocusSound } from './useGlobalFocusSound.ts';
 import { useObjectUrl } from './useObjectUrl.ts';
 import { useUpdateDetails } from './useUpdateDetails.ts';
 import { useWebfeedData } from './useWebfeedData.ts';
@@ -60,6 +63,9 @@ export {
   capitalize,
   combineTerminalServersModeEnabled,
   debounce,
+  ElementSoundKind,
+  ElementSoundPlayer,
+  ElementSoundPlayerState,
   extractRdpSignatureCertificate,
   favoritesEnabled,
   fillEmptyMimeTypes,
@@ -104,10 +110,12 @@ export {
   restoreSplashScreen,
   SecurityManagementSchemas,
   simpleModeEnabled,
+  soundEffectsEnabled,
   toKebabCase,
   useElementSize,
   useFavoriteResources,
   useFavoriteResourceTerminalServers,
+  useGlobalFocusSound,
   useObjectUrl,
   useUpdateDetails,
   useWebfeedData,

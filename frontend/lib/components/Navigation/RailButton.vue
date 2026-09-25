@@ -2,6 +2,7 @@
   import { registerIconAnimationKey, type IconAnimationHandle } from '$components/AnimatedIcon/iconAnimation';
   import { AnimatedNavigationItemIndicator } from '$components/Navigation/AnimatedNavigationItemIndicator/index.mjs';
   import TextBlock from '$components/TextBlock/TextBlock.vue';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { inject, provide, useTemplateRef } from 'vue';
 
   const {
@@ -54,6 +55,11 @@
   function release() {
     iconAnimation?.release();
   }
+  function handleClick(event: MouseEvent) {
+    if (active || disabled) return;
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
+    onClick?.(event);
+  }
 </script>
 
 <template>
@@ -66,7 +72,7 @@
     :target="active ? null : target"
     :disabled="active || disabled"
     ref="componentRef"
-    @click="active ? null : onClick"
+    @click="handleClick"
     @keydown.stop="handleKeydown"
     @pointerdown="press"
     @pointerup="release"

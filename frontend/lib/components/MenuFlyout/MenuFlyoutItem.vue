@@ -1,6 +1,10 @@
 <script setup lang="ts">
+  import { useDialogStackStore } from '$stores';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { computed, onMounted, ref } from 'vue';
   import TextBlock from '../TextBlock/TextBlock.vue';
+
+  const dialogStackStore = useDialogStackStore();
 
   defineOptions({
     name: 'MenuFlyoutItem',
@@ -40,7 +44,23 @@
       return;
     }
 
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
+
+    // selecting an item normally closes the flyout, and that closing Hide
+    // sound should take precedence over this item's own Invoke sound (it
+    // naturally does, since Hide plays after and cancels Invoke). But if this
+    // click opens another dialog (e.g. Properties), that dialog's Show sound
+    // should take precedence instead, so suppress the flyout's Hide sound in
+    // that case. The popover's 'toggle' event (which triggers Hide) is queued
+    // by the browser and not guaranteed to fire synchronously, so this uses
+    // the suppression flag rather than relying on call order/timing.
+    const stackSizeBeforeEmit = dialogStackStore.stack.length;
     emit('click', event);
+    const anotherDialogOpened = dialogStackStore.stack.length > stackSizeBeforeEmit;
+    if (anotherDialogOpened) {
+      ElementSoundPlayer.suppressNext(ElementSoundKind.Hide);
+    }
+
     if (parentFlyout.value) {
       parentFlyout.value.hidePopover();
     }

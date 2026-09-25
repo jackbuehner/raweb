@@ -34,13 +34,38 @@
     uninstallApp,
     wrench,
   } from '$icons';
-  import { notEmpty, PreventableEvent, registerServiceWorker, removeSplashScreen } from '$utils';
+  import {
+    ElementSoundKind,
+    ElementSoundPlayer,
+    notEmpty,
+    PreventableEvent,
+    registerServiceWorker,
+    removeSplashScreen,
+    useGlobalFocusSound,
+  } from '$utils';
   import { isBrowser } from '$utils/environment.ts';
   import { entranceIn, fadeOut } from '$utils/transitions';
   import { useTranslation } from 'i18next-vue';
   import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue';
   import { RouteRecordNormalized, useRouter } from 'vue-router';
   import { i18nextPromise } from './i18n.ts';
+
+  useGlobalFocusSound();
+
+  // the markdown-rendered docs content is plain <a>/RouterLink elements, not
+  // our own wrapped components, so there's no `sound` prop to opt into; use a
+  // delegated listener scoped to the content area instead
+  function handleContentLinkClick(event: MouseEvent) {
+    if (event.target instanceof HTMLElement && event.target.closest('a')) {
+      ElementSoundPlayer.play(ElementSoundKind.Invoke);
+    }
+  }
+  onMounted(() => {
+    document.getElementById('page')?.addEventListener('click', handleContentLinkClick);
+  });
+  onUnmounted(() => {
+    document.getElementById('page')?.removeEventListener('click', handleContentLinkClick);
+  });
 
   const titlebarLoading = ref(false);
   async function listenToServiceWorker(event: any) {

@@ -23,6 +23,7 @@
     registerServiceWorker,
     removeSplashScreen,
     simpleModeEnabled,
+    useGlobalFocusSound,
     useUpdateDetails,
     useWebfeedData,
   } from '$utils';
@@ -170,6 +171,8 @@
       prefersReducedMotionMediaQueryList.removeEventListener('change', updatePrefersReducedMotion);
     };
   });
+
+  useGlobalFocusSound();
 
   router.beforeResolve(async (to, from) => {
     return new Promise<NavigationGuardReturn>(async (next) => {

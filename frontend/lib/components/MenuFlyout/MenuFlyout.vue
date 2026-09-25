@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { computed, useTemplateRef } from 'vue';
 
   const {
@@ -75,6 +76,9 @@
 
     if (evt.key === 'ArrowDown') {
       evt.preventDefault();
+      // moving focus to the next item plays the normal Focus sound (below);
+      // menus don't get a dedicated Move sound, that's reserved for structured
+      // navigation controls like SelectorBar
       if (currentIndex < items.length - 1) {
         items[currentIndex + 1].focus();
       } else {
@@ -107,9 +111,18 @@
     const firstItem: HTMLLIElement | null = menu.querySelector('li:not([disabled="true"])');
     if (firstItem) {
       setTimeout(() => {
+        // this focus change is a side effect of opening the menu, which already
+        // plays its own Show sound, so don't also play the automatic Focus sound
+        ElementSoundPlayer.suppressNext(ElementSoundKind.Focus);
         firstItem.focus();
       }, 0);
     }
+  }
+
+  // the native popover 'toggle' event fires for both showing and hiding
+  function handleToggle(evt: ToggleEvent) {
+    focusMenuOnOpen();
+    ElementSoundPlayer.play(evt.newState === 'open' ? ElementSoundKind.Show : ElementSoundKind.Hide);
   }
 </script>
 
@@ -127,7 +140,7 @@
     class="menu-flyout"
     @click.stop
     @keydown.stop="handleKeydown"
-    @toggle="focusMenuOnOpen"
+    @toggle="handleToggle"
   >
     <div class="menu-flyout-surface">
       <slot name="menu" :popoverId :open :close :toggle></slot>

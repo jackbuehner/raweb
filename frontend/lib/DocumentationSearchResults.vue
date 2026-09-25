@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { ProgressRing, TextBlock } from '$components';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { isBrowser } from '$utils/environment.ts';
   import DOMPurify from 'dompurify';
   import { useTranslation } from 'i18next-vue';
@@ -8,6 +9,11 @@
 
   const { t } = useTranslation();
   const router = useRouter();
+
+  function openResult(rawUrl: string | undefined) {
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
+    router.push(rawUrl || '/docs/');
+  }
 
   /**
    * Escapes special characters in a string that would normally have special meaning in a regular expression.
@@ -114,7 +120,7 @@
   <a
     v-for="searchResult of searchResults"
     :href="searchResult.raw_url"
-    @click.prevent="router.push(searchResult.raw_url || '/docs/')"
+    @click.prevent="openResult(searchResult.raw_url)"
     class="result-link"
   >
     <article class="result">

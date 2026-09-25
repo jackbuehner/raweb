@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { registerIconAnimationKey, type IconAnimationHandle } from '$components/AnimatedIcon/iconAnimation';
   import ProgressRing from '$components/ProgressRing/ProgressRing.vue';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { computed, provide } from 'vue';
 
   export interface StandardButtonProps {
@@ -8,9 +9,17 @@
     href?: string;
     disabled?: boolean;
     loading?: boolean;
+    /** Sound to play when the button is invoked. Defaults to Invoke; pass 'none' to disable. */
+    sound?: ElementSoundKind | 'none';
   }
 
-  const { variant = 'standard', href, disabled, loading } = defineProps<StandardButtonProps>();
+  const {
+    variant = 'standard',
+    href,
+    disabled,
+    loading,
+    sound = ElementSoundKind.Invoke,
+  } = defineProps<StandardButtonProps>();
 
   const tagName = computed(() => (href ? 'a' : 'button'));
 
@@ -30,6 +39,12 @@
   function release() {
     iconEndAnimation?.release();
   }
+  function playSound() {
+    if (disabled || sound === 'none') {
+      return;
+    }
+    ElementSoundPlayer.play(sound);
+  }
 </script>
 
 <template>
@@ -44,6 +59,7 @@
     @pointerenter="onPointerEnter"
     @pointerleave="release"
     @pointercancel="release"
+    @click="playSound"
   >
     <slot name="icon"></slot>
     <ProgressRing v-if="$slots.default && loading" style="position: absolute" :size="16" />

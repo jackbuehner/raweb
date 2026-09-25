@@ -11,7 +11,14 @@
     TextBlock,
   } from '$components';
   import { useCoreDataStore } from '$stores';
-  import { restoreSplashScreen, simpleModeEnabled, useElementSize, useUpdateDetails } from '$utils';
+  import {
+    ElementSoundKind,
+    ElementSoundPlayer,
+    restoreSplashScreen,
+    simpleModeEnabled,
+    useElementSize,
+    useUpdateDetails,
+  } from '$utils';
   import { isBrowser } from '$utils/environment.ts';
   import {
     computed,
@@ -197,6 +204,7 @@
 
   function goBack() {
     route.meta.isTitlebarBackButton = true;
+    ElementSoundPlayer.play(ElementSoundKind.GoBack);
 
     if (route.path.startsWith('/settings') || route.name === 'webGuacd') {
       router.back();
@@ -354,6 +362,7 @@
             style="color: var(--wui-system-attention)"
             v-if="update?.details"
             @click="() => open()"
+            sound="none"
           >
             <template #icon>
               <svg width="24" height="24" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -383,6 +392,7 @@
           :href="settingsLinkProps.href"
           class="profile-menu-button"
           title="Open settings"
+          :sound="ElementSoundKind.Invoke"
           @click="settingsLinkProps.navigate"
         >
           <AnimatedIcon.Settings />
@@ -399,6 +409,7 @@
           :href="simpleLinkProps.href"
           class="profile-menu-button"
           title="Back to apps and devices list"
+          :sound="ElementSoundKind.GoBack"
           @click="simpleLinkProps.navigate"
         >
           <AnimatedIcon.Home />

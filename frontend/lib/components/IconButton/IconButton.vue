@@ -1,12 +1,19 @@
 <script setup lang="ts">
   import { registerIconAnimationKey, type IconAnimationHandle } from '$components/AnimatedIcon/iconAnimation';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { computed, provide, useAttrs } from 'vue';
 
-  const { href, tag, disabled, tabindex } = defineProps<{
+  const { href, tag, disabled, tabindex, sound = 'none' } = defineProps<{
     href?: string;
     disabled?: boolean;
     tag?: string;
     tabindex?: number | null;
+    /**
+     * Sound to play when the button is invoked. Defaults to no sound, since
+     * IconButton is used for many specialized actions (e.g. opening a menu,
+     * navigating back) that already play their own more specific sound.
+     */
+    sound?: ElementSoundKind | 'none';
   }>();
   const restProps = useAttrs();
 
@@ -29,6 +36,10 @@
   function release() {
     iconAnimation?.release();
   }
+  function playSound() {
+    if (disabled || sound === 'none') return;
+    ElementSoundPlayer.play(sound);
+  }
 </script>
 
 <template>
@@ -44,6 +55,7 @@
     @pointerenter="onPointerEnter"
     @pointerleave="release"
     @pointercancel="release"
+    @click="playSound"
   >
     <slot></slot>
   </component>

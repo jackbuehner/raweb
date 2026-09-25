@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
   import { nextTick, useAttrs, useTemplateRef, watch } from 'vue';
 
   const {
@@ -35,6 +36,7 @@
   }>();
 
   function handleSubmit() {
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
     emit('submit', model.value);
   }
 
@@ -47,6 +49,7 @@
 
   function clear() {
     model.value = '';
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
   }
 
   // track if update came from inside the component; we do not want to re-render when the parent sends the new value back

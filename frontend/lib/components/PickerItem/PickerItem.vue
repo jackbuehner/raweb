@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { TextBlock } from '$components';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
 
   const { ondblclick, name, value } = defineProps<{
     ondblclick?: () => void;
@@ -8,6 +9,10 @@
   }>();
 
   const selectedTerminalServer = defineModel<string>();
+
+  function handleChange() {
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
+  }
 </script>
 
 <template>
@@ -15,7 +20,7 @@
     <label>
       <slot name="icon"></slot>
       <TextBlock variant="body"><slot></slot></TextBlock>
-      <input type="radio" :name :value v-model="selectedTerminalServer" />
+      <input type="radio" :name :value v-model="selectedTerminalServer" @change="handleChange" />
     </label>
   </div>
 </template>

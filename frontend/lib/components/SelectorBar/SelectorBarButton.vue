@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { AnimatedNavigationItemIndicator, Button } from '$components';
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
 
   const {
     selected = false,
@@ -19,6 +20,24 @@
   const emit = defineEmits<{
     (e: 'click', event: MouseEvent): void;
   }>();
+
+  // play a directional move sound based on this button's position relative to
+  // the currently selected one, instead of the button's default invoke sound
+  function handleClick(event: MouseEvent) {
+    const button = event.currentTarget as HTMLElement;
+    const bar = button.closest('.selector-bar');
+    const siblings = bar ? Array.from(bar.querySelectorAll<HTMLElement>('.selector-bar-button')) : [];
+    const currentIndex = siblings.findIndex((el) => el.classList.contains('selected'));
+    const targetIndex = siblings.indexOf(button);
+
+    if (currentIndex !== -1 && targetIndex !== -1 && targetIndex !== currentIndex) {
+      ElementSoundPlayer.play(targetIndex > currentIndex ? ElementSoundKind.MoveNext : ElementSoundKind.MovePrevious);
+    } else {
+      ElementSoundPlayer.play(ElementSoundKind.Invoke);
+    }
+
+    emit('click', event);
+  }
 </script>
 
 <template>
@@ -30,7 +49,8 @@
       :aria-selected="selected"
       class="selector-bar-button"
       :class="{ selected }"
-      @click="(event: MouseEvent) => emit('click', event)"
+      sound="none"
+      @click="handleClick"
     >
       <template v-if="$slots.icon" #icon><slot name="icon"></slot></template>
       <slot></slot>

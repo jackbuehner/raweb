@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import { ElementSoundKind, ElementSoundPlayer } from '$utils';
+
   const {
     name,
     disabled = false,
@@ -21,6 +23,7 @@
 
   function handleChange(event: Event) {
     const target = event.target as HTMLInputElement;
+    ElementSoundPlayer.play(ElementSoundKind.Invoke);
     const delay = parseFloat(
       getComputedStyle(document.documentElement).getPropertyValue('--wui-control-normal-duration')
     );

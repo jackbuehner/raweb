@@ -1,0 +1,1 @@
+import{ft as e}from"./shared-DwArrBfa.js";export{e as RouterLink};

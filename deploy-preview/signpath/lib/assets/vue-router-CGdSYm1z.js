@@ -1,0 +1,1 @@
+import{ft as e}from"./shared-CYGHw9OE.js";export{e as RouterLink};

@@ -1,0 +1,1 @@
+import{ft as e}from"./shared-BUnHQ-dt.js";export{e as RouterLink};

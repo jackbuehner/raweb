@@ -342,6 +342,38 @@ public class AuthTicketTests {
   }
 
   [Test]
+  public async Task IsSudoTicketFor_TrueForSameUserWithReadAndWriteAdminLevel() {
+    var session = new AuthTicket(1, @"DOMAIN\admin1", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyAdmin));
+    var sudo = new AuthTicket(1, @"DOMAIN\admin1", DateTime.Now, DateTime.Now.AddHours(1), false, new AuthTicketUserData(AuthTicketLevel.ReadAndWriteAdmin));
+
+    await Assert.That(sudo.IsSudoTicketFor(session)).IsTrue();
+  }
+
+  [Test]
+  public async Task IsSudoTicketFor_IgnoresAccountNameCase() {
+    var session = new AuthTicket(1, @"DOMAIN\Admin1", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyAdmin));
+    var sudo = new AuthTicket(1, @"domain\admin1", DateTime.Now, DateTime.Now.AddHours(1), false, new AuthTicketUserData(AuthTicketLevel.ReadAndWriteAdmin));
+
+    await Assert.That(sudo.IsSudoTicketFor(session)).IsTrue();
+  }
+
+  [Test]
+  public async Task IsSudoTicketFor_FalseForDifferentUser() {
+    var session = new AuthTicket(1, @"DOMAIN\admin1", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyAdmin));
+    var sudo = new AuthTicket(1, @"DOMAIN\admin2", DateTime.Now, DateTime.Now.AddHours(1), false, new AuthTicketUserData(AuthTicketLevel.ReadAndWriteAdmin));
+
+    await Assert.That(sudo.IsSudoTicketFor(session)).IsFalse();
+  }
+
+  [Test]
+  public async Task IsSudoTicketFor_FalseForLevelBelowReadAndWriteAdmin() {
+    var session = new AuthTicket(1, @"DOMAIN\admin1", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyAdmin));
+    var sudo = new AuthTicket(1, @"DOMAIN\admin1", DateTime.Now, DateTime.Now.AddHours(1), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyAdmin));
+
+    await Assert.That(sudo.IsSudoTicketFor(session)).IsFalse();
+  }
+
+  [Test]
   public async Task IsAdmin_FalseForReadOnlyUser() {
     await Assert.That(AuthTicketLevel.ReadOnlyUser.IsAdmin).IsFalse();
   }

@@ -716,7 +716,8 @@ public class UserInformation {
       return null;
     }
 
-    var isSudo = writeAccess && AuthTicket.FromHttpRequestCookie(request, Constants.SudoAuthCookieName)?.UserData.Level == AuthTicketLevel.ReadAndWriteAdmin;
+    // the sudo cookie only grants write access if it belongs to the same user as the main auth ticket
+    var isSudo = writeAccess && AuthTicket.FromHttpRequestCookie(request, Constants.SudoAuthCookieName)?.IsSudoTicketFor(authTicket) == true;
 
     // If the user information is already in the request context, return it.
     // This allows us to avoid repeated lookups during the same request.

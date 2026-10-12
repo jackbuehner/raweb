@@ -19,6 +19,18 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
     return Name;
   }
 
+  /// <summary>
+  /// Determines whether this ticket is a valid sudo ticket for the specified auth ticket.
+  /// <br /><br />
+  /// A sudo ticket only elevates the session of the user who created it, so the ticket must have
+  /// the <see cref="AuthTicketLevel.ReadAndWriteAdmin"/> level and belong to the same user as the
+  /// main auth ticket. Otherwise, any administrator's sudo ticket could elevate another user's session.
+  /// </summary>
+  /// <param name="mainAuthTicket">The ticket from the main authentication cookie.</param>
+  public bool IsSudoTicketFor(AuthTicket mainAuthTicket) {
+    return UserData.Level == AuthTicketLevel.ReadAndWriteAdmin && string.Equals(Name, mainAuthTicket.Name, StringComparison.OrdinalIgnoreCase);
+  }
+
 
   /// <summary>
   /// Creates a string containing an encrypted representation of the authentication ticket

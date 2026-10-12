@@ -24,11 +24,12 @@ internal static class AuthenticateWorkspaceEndpoint {
     }
 
     if (ShouldAuthenticateAnonymously()) {
-      var anonTicket = AuthTicket.FromUserInformation(UserInformation.AnonymousUser, AuthTicketLevel.ReadOnlyUser);
+      var anonTicket = AuthTicket.FromUserInformation(UserInformation.AnonymousUser, AuthTicketLevel.ReadOnlyWorkspaceUser);
       return CreateWorkspaceAuthResponse(anonTicket);
     }
 
-    var ticket = AuthTicket.FromHttpRequestIdentity(ctx.Request, maxLevel: AuthTicketLevel.ReadOnlyUser);
+    // ReadOnlyWorkspaceUser only allow access to endpoints required for functional workspace subscription
+    var ticket = AuthTicket.FromHttpRequestIdentity(ctx.Request, maxLevel: AuthTicketLevel.ReadOnlyWorkspaceUser);
     return CreateWorkspaceAuthResponse(ticket);
   }
 

@@ -6,8 +6,8 @@ namespace RAWeb.Server.Api;
 
 internal static class GetImageEndpoint {
   internal static void Map(IEndpointRouteBuilder app) {
-    app.MapGet("/api/resources/image/{*image}", Handle);
-    app.MapGet("/get-image.aspx", Handle);
+    app.MapGet("/api/resources/image/{*image}", Handle).AllowWorkspaceAuthTicket();
+    app.MapGet("/get-image.aspx", Handle).AllowWorkspaceAuthTicket();
   }
 
   private static IResult Handle(HttpContext ctx, string? image = null, string format = "png", string? frame = null, string theme = "light", string? fallback = null) {

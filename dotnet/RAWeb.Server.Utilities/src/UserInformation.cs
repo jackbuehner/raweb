@@ -50,6 +50,10 @@ public class UserInformation {
   /// <description>Expected Behavior</description>
   /// </listheader>
   /// <item>
+  /// <term>ReadOnlyWorkspaceUser</term>
+  /// <description>Can only access the workspace feed endpoints that Remote Desktop clients use. All other endpoints treat the user as unauthenticated.</description>
+  /// </item>
+  /// <item>
   /// <term>ReadOnlyUser</term>
   /// <description>Can access endpoints that are required for basic, read-only workspace and app functionality.</description>
   /// </item>
@@ -74,6 +78,9 @@ public class UserInformation {
       }
       else if (field == AuthTicketLevel.ReadOnlyAdmin && IsLocalAdministrator) {
         return AuthTicketLevel.ReadOnlyAdmin;
+      }
+      else if (field == AuthTicketLevel.ReadOnlyWorkspaceUser) {
+        return AuthTicketLevel.ReadOnlyWorkspaceUser;
       }
       return AuthTicketLevel.ReadOnlyUser;
     }

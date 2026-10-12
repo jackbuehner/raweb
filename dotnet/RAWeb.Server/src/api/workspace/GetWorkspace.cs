@@ -6,8 +6,8 @@ namespace RAWeb.Server.Api;
 
 internal static class GetWorkspaceEndpoint {
   internal static void Map(IEndpointRouteBuilder app) {
-    app.MapGet("/api/workspace", Handle);
-    app.MapGet("/webfeed.aspx", Handle);
+    app.MapGet("/api/workspace", Handle).AllowWorkspaceAuthTicket();
+    app.MapGet("/webfeed.aspx", Handle).AllowWorkspaceAuthTicket();
   }
 
   private static IResult Handle(HttpContext ctx, string? terminalServer = "", string? mergeTerminalServers = "0") {

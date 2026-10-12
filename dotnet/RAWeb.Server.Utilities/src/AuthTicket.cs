@@ -290,7 +290,7 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
       groupInformation.RemoveAll(g => g.Sid == excludedGroup.Sid);
     }
 
-    var authTicketLevel = AuthTicketLevel.ReadOnlyUser;
+    var authTicketLevel = maxLevel == AuthTicketLevel.ReadOnlyWorkspaceUser ? AuthTicketLevel.ReadOnlyWorkspaceUser : AuthTicketLevel.ReadOnlyUser;
     if (logonUserIdentity.IsLocalAdministrator && maxLevel == AuthTicketLevel.ReadAndWriteAdmin) {
       authTicketLevel = AuthTicketLevel.ReadAndWriteAdmin;
     }
@@ -324,7 +324,28 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
   }
 
   /// <summary>
+  /// The <see cref="Microsoft.AspNetCore.Http.HttpContext.Items"/> key that marks a request
+  /// as allowed to use a workspace authentication ticket (<see cref="AuthTicketLevel.ReadOnlyWorkspaceUser"/>).
+  /// </summary>
+  public const string AllowWorkspaceAuthTicketContextKey = "RAWeb.AllowWorkspaceAuthTicket";
+
+  /// <summary>
+  /// Marks the request as allowed to use a workspace authentication ticket.
+  /// This must only be called for the endpoints that Remote Desktop clients use.
+  /// </summary>
+  public static void AllowWorkspaceAuthTicket(Microsoft.AspNetCore.Http.HttpContext context) {
+    context.Items[AllowWorkspaceAuthTicketContextKey] = true;
+  }
+
+  private static bool IsWorkspaceAuthTicketAllowed(Microsoft.AspNetCore.Http.HttpContext context) {
+    return context.Items[AllowWorkspaceAuthTicketContextKey] is true;
+  }
+
+  /// <summary>
   /// Parses an authentication ticket from the specified HTTP request's cookies.
+  /// <br /><br />
+  /// Returns null for workspace user tickets (<see cref="AuthTicketLevel.ReadOnlyWorkspaceUser"/>)
+  /// unless the request was marked with <see cref="AllowWorkspaceAuthTicket"/>.
   /// </summary>
   /// <param name="request"></param>
   /// <param name="cookieName"></param>
@@ -356,6 +377,13 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
     try {
       // decrypt may throw an exception if cookieValue is invalid
       var authTicket = FromEncryptedToken(cookieValue);
+
+      // workspace user tickets are only accepted by endpoints that explicitly
+      // allow them so that they cannot be used as a web app session to bypass MFA
+      if (authTicket.UserData.Level == AuthTicketLevel.ReadOnlyWorkspaceUser && !IsWorkspaceAuthTicketAllowed(request.HttpContext)) {
+        return null;
+      }
+
       return authTicket;
     }
     catch {
@@ -379,6 +407,16 @@ public record AuthTicketUserData([property: JsonPropertyName("level")] AuthTicke
 internal partial class AuthTicketJsonContext : JsonSerializerContext { }
 
 public enum AuthTicketLevel {
+  /// <summary>
+  /// Can only access the workspace feed endpoints that Remote Desktop clients use (the feed, the
+  /// resource files and icons referenced by the feed, and the reconnect service). All other endpoints
+  /// treat the user as unauthenticated.
+  /// <br /><br />
+  /// This level is used for workspace authentication (loginfeed.aspx), which uses Windows authentication
+  /// without MFA because Remote Desktop clients cannot complete MFA prompts. Limiting these tickets ensures
+  /// that they cannot be used as a web app session to bypass MFA.
+  /// </summary>
+  ReadOnlyWorkspaceUser = -1,
   ReadOnlyUser = 0,
   ReadOnlyAdmin = 1,
   ReadAndWriteAdmin = 2

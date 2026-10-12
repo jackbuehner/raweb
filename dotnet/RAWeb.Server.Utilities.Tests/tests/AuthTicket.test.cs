@@ -277,6 +277,71 @@ public class AuthTicketTests {
   }
 
   [Test]
+  public async Task RoundTrip_PreservesReadOnlyWorkspaceUserLevel() {
+    var ticket = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyWorkspaceUser));
+
+    var restored = AuthTicket.FromEncryptedToken(ticket.ToEncryptedToken());
+
+    await Assert.That(restored.UserData.Level).IsEqualTo(AuthTicketLevel.ReadOnlyWorkspaceUser);
+  }
+
+  [Test]
+  public async Task FromWindowsIdentity_MaxLevelReadOnlyWorkspaceUser_UsesWorkspaceUserLevel() {
+    var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+
+    var ticket = AuthTicket.FromWindowsIdentity(identity, AuthTicketLevel.ReadOnlyWorkspaceUser);
+
+    await Assert.That(ticket.UserData.Level).IsEqualTo(AuthTicketLevel.ReadOnlyWorkspaceUser);
+  }
+
+  [Test]
+  public async Task UserInformation_DoesNotUpgradeReadOnlyWorkspaceUserLevel() {
+    var userInfo = new UserInformation("S-1-4-447-2", "jdoe", "DOMAIN", AuthTicketLevel.ReadOnlyWorkspaceUser);
+
+    await Assert.That(userInfo.AuthTicketLevel).IsEqualTo(AuthTicketLevel.ReadOnlyWorkspaceUser);
+    await Assert.That(userInfo.AuthTicketLevel.IsAdmin).IsFalse();
+  }
+
+  private static Microsoft.AspNetCore.Http.DefaultHttpContext CreateContextWithAuthCookie(AuthTicket ticket) {
+    var cookie = ticket.ToCookie("/");
+    var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+    context.Request.Headers["Cookie"] = $"{cookie.Name}={cookie.Value}";
+    return context;
+  }
+
+  [Test]
+  public async Task FromHttpRequest_RejectsWorkspaceTicketWhenNotAllowed() {
+    var ticket = AuthTicket.FromUserInformation(UserInformation.AnonymousUser, AuthTicketLevel.ReadOnlyWorkspaceUser);
+    var context = CreateContextWithAuthCookie(ticket);
+
+    var userInfo = UserInformation.FromHttpRequest(context.Request);
+
+    await Assert.That(userInfo).IsNull();
+  }
+
+  [Test]
+  public async Task FromHttpRequest_AcceptsWorkspaceTicketWhenAllowed() {
+    var ticket = AuthTicket.FromUserInformation(UserInformation.AnonymousUser, AuthTicketLevel.ReadOnlyWorkspaceUser);
+    var context = CreateContextWithAuthCookie(ticket);
+    AuthTicket.AllowWorkspaceAuthTicket(context);
+
+    var userInfo = UserInformation.FromHttpRequest(context.Request);
+
+    await Assert.That(userInfo).IsNotNull();
+    await Assert.That(userInfo!.Sid).IsEqualTo(UserInformation.AnonymousUser.Sid);
+  }
+
+  [Test]
+  public async Task FromHttpRequest_AcceptsFullTicketWhenWorkspaceTicketsAreNotAllowed() {
+    var ticket = AuthTicket.FromUserInformation(UserInformation.AnonymousUser, AuthTicketLevel.ReadOnlyUser);
+    var context = CreateContextWithAuthCookie(ticket);
+
+    var userInfo = UserInformation.FromHttpRequest(context.Request);
+
+    await Assert.That(userInfo).IsNotNull();
+  }
+
+  [Test]
   public async Task IsAdmin_FalseForReadOnlyUser() {
     await Assert.That(AuthTicketLevel.ReadOnlyUser.IsAdmin).IsFalse();
   }

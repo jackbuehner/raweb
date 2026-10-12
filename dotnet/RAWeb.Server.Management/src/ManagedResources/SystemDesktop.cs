@@ -431,6 +431,23 @@ public sealed class SystemDesktop : ManagedResource {
       return stream;
     }
 
+    /// <summary>
+    /// Determines whether the path is a fully qualified path on a local drive.
+    /// </summary>
+    static bool IsLocalDrivePath(string path) {
+      if (!Path.IsPathFullyQualified(path)) {
+        return false;
+      }
+
+      var fullPath = Path.GetFullPath(path);
+
+      // require it to start with a drive letter, colon, and slash (e.g., C:\) to ensure it is a local drive path
+      return fullPath.Length >= 3 &&
+        char.IsAsciiLetter(fullPath[0]) &&
+        fullPath[1] == Path.VolumeSeparatorChar &&
+        fullPath[2] == Path.DirectorySeparatorChar;
+    }
+
     if (userSid is null) {
       // no user SID provided: return the system wallpaper
       return ResizedDefaultIcon();
@@ -443,7 +460,8 @@ public sealed class SystemDesktop : ManagedResource {
       // read the desktop wallpaper path
       using var desktopKey = hiveReader.OpenSubKey(@"Control Panel\Desktop");
       var wallpaperPath = desktopKey?.GetValue("WallPaper") as string;
-      if (wallpaperPath is not null && File.Exists(wallpaperPath)) {
+      // we require a local path so that the server does not access a network location using the server's process credentials
+      if (wallpaperPath is not null && IsLocalDrivePath(wallpaperPath) && File.Exists(wallpaperPath)) {
         return Resize(new MemoryStream(File.ReadAllBytes(wallpaperPath)));
       }
 

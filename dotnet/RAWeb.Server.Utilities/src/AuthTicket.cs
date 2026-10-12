@@ -10,13 +10,41 @@ namespace RAWeb.Server.Utilities;
 public sealed class AuthTicket(int version, string name, DateTime issueDate, DateTime expiration, bool isPersistent, AuthTicketUserData? userData) {
   public int Version { get; set; } = version;
   public string Name { get; set; } = name;
-  public DateTime IssueDate { get; set; } = issueDate;
-  public DateTime Expiration { get; set; } = expiration;
+  /// <summary>
+  /// When the ticket was issued. Local times are converted to UTC.
+  /// </summary>
+  public DateTime IssueDate { get; set => field = ToUtc(value, nameof(IssueDate)); } = ToUtc(issueDate, nameof(issueDate));
+
+  /// <summary>
+  /// When the ticket expires. Local times are converted to UTC.
+  /// </summary>
+  public DateTime Expiration { get; set => field = ToUtc(value, nameof(Expiration)); } = ToUtc(expiration, nameof(expiration));
   public bool IsPersistent { get; set; } = isPersistent;
   public AuthTicketUserData UserData { get; init; } = userData ?? new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser);
 
   public override string ToString() {
     return Name;
+  }
+
+  /// <summary>
+  /// Whether the ticket's expiration time has passed. Expired tickets must not be accepted.
+  /// </summary>
+  public bool IsExpired => Expiration <= DateTime.UtcNow;
+
+  /// <summary>
+  /// Converts a date to UTC so that ticket dates can be compared with the current time
+  /// regardless of the server's time zone.
+  /// </summary>
+  /// <exception cref="ArgumentException">
+  /// When the date's kind is <see cref="DateTimeKind.Unspecified"/>, because it is unknown
+  /// whether the date is in local time or UTC.
+  /// </exception>
+  private static DateTime ToUtc(DateTime value, string paramName) {
+    return value.Kind switch {
+      DateTimeKind.Utc => value,
+      DateTimeKind.Local => value.ToUniversalTime(),
+      _ => throw new ArgumentException("Auth ticket dates must be UTC or local times, not unspecified times.", paramName)
+    };
   }
 
   /// <summary>
@@ -150,6 +178,7 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
     bool isPersistent,
     AuthTicketUserData userData
   ) {
+    // dates are always UTC (see the IssueDate and Expiration properties), so the ticks are UTC ticks
     return string.Join("\n", [
         version.ToString(),
         name,
@@ -173,8 +202,8 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
     return new AuthTicket(
         version: int.Parse(parts[0]),
         name: parts[1],
-        issueDate: new DateTime(long.Parse(parts[2])),
-        expiration: new DateTime(long.Parse(parts[3])),
+        issueDate: new DateTime(long.Parse(parts[2]), DateTimeKind.Utc),
+        expiration: new DateTime(long.Parse(parts[3]), DateTimeKind.Utc),
         isPersistent: bool.Parse(parts[4]),
         userData: System.Text.Json.JsonSerializer.Deserialize(parts[5], AuthTicketJsonContext.Default.AuthTicketUserData)
     );
@@ -321,8 +350,8 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
   /// <returns></returns>
   public static AuthTicket FromUserInformation(UserInformation userInfo, AuthTicketLevel level) {
     var version = 1;
-    var issueDate = DateTime.Now;
-    var expirationDate = DateTime.Now.AddMinutes(30);
+    var issueDate = DateTime.UtcNow;
+    var expirationDate = issueDate.AddMinutes(30);
     var isPersistent = false;
 
     var userData = new AuthTicketUserData(level);
@@ -356,8 +385,9 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
   /// <summary>
   /// Parses an authentication ticket from the specified HTTP request's cookies.
   /// <br /><br />
-  /// Returns null for workspace user tickets (<see cref="AuthTicketLevel.ReadOnlyWorkspaceUser"/>)
-  /// unless the request was marked with <see cref="AllowWorkspaceAuthTicket"/>.
+  /// Expired tickets are treated as if the cookie does not exist. Returns null for workspace user
+  /// tickets (<see cref="AuthTicketLevel.ReadOnlyWorkspaceUser"/>) unless the request was marked
+  /// with <see cref="AllowWorkspaceAuthTicket"/>.
   /// </summary>
   /// <param name="request"></param>
   /// <param name="cookieName"></param>
@@ -372,8 +402,7 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
       throw new NullReferenceException("Cookies collection cannot be null.");
     }
 
-    // read the cookie value
-    if (!request.Cookies.TryGetValue(cookieName ?? Constants.DefaultAuthCookieName, out var cookieValue)) {
+    static AuthTicket? NoValidTicket() {
       // if the cookie does not exist, but anonymous mode is set to always,
       // then we can return an auth ticket for the anonymous user instead of returning null
       var anonSetting = PoliciesManager.RawPolicies["App.Auth.Anonymous"];
@@ -381,14 +410,24 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
         return FromUserInformation(UserInformation.AnonymousUser, AuthTicketLevel.ReadOnlyUser);
       }
 
-      // if the cookie does not exist, return null
       return null;
+    }
+
+    // read the cookie value
+    if (!request.Cookies.TryGetValue(cookieName ?? Constants.DefaultAuthCookieName, out var cookieValue)) {
+      return NoValidTicket();
     }
 
     // decrypt the value and return it
     try {
       // decrypt may throw an exception if cookieValue is invalid
       var authTicket = FromEncryptedToken(cookieValue);
+
+      // the browser removes expired cookies, but the server must also reject them
+      // so that a copied cookie value cannot be used after it expires
+      if (authTicket.IsExpired) {
+        return NoValidTicket();
+      }
 
       // workspace user tickets are only accepted by endpoints that explicitly
       // allow them so that they cannot be used as a web app session to bypass MFA

@@ -45,8 +45,8 @@ public class AuthTicketTests {
 
   [Test]
   public async Task RoundTrip_PreservesAllFields() {
-    var issueDate = new DateTime(2026, 6, 1, 12, 0, 0);
-    var expiration = new DateTime(2026, 6, 1, 12, 30, 0);
+    var issueDate = new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);
+    var expiration = new DateTime(2026, 6, 1, 12, 30, 0, DateTimeKind.Utc);
     var original = new AuthTicket(1, @"DOMAIN\jdoe", issueDate, expiration, true, new AuthTicketUserData(AuthTicketLevel.ReadOnlyAdmin));
 
     var token = original.ToEncryptedToken();
@@ -54,8 +54,10 @@ public class AuthTicketTests {
 
     await Assert.That(restored.Version).IsEqualTo(1);
     await Assert.That(restored.Name).IsEqualTo(@"DOMAIN\jdoe");
-    await Assert.That(restored.IssueDate.Ticks).IsEqualTo(issueDate.Ticks);
-    await Assert.That(restored.Expiration.Ticks).IsEqualTo(expiration.Ticks);
+    await Assert.That(restored.IssueDate.Kind).IsEqualTo(DateTimeKind.Utc);
+    await Assert.That(restored.IssueDate).IsEqualTo(issueDate);
+    await Assert.That(restored.Expiration.Kind).IsEqualTo(DateTimeKind.Utc);
+    await Assert.That(restored.Expiration).IsEqualTo(expiration);
     await Assert.That(restored.IsPersistent).IsTrue();
     await Assert.That(restored.UserData.Level).IsEqualTo(AuthTicketLevel.ReadOnlyAdmin);
   }
@@ -157,7 +159,53 @@ public class AuthTicketTests {
 
     await Assert.That(restoredTicket).IsNotNull();
     await Assert.That(restoredTicket!.Name).IsEqualTo(@"DOMAIN\jdoe");
-    await Assert.That(restoredTicket.Expiration).IsEqualTo(expiration);
+    await Assert.That(restoredTicket.Expiration).IsEqualTo(expiration.ToUniversalTime());
+    await Assert.That(restoredTicket.IsExpired).IsTrue();
+  }
+
+  [Test]
+  public async Task IsExpired_FalseBeforeExpiration() {
+    var ticket = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.UtcNow, DateTime.UtcNow.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser));
+
+    await Assert.That(ticket.IsExpired).IsFalse();
+  }
+
+  /// <summary>
+  /// Local and UTC expiration times must be compared as the same instant.
+  /// </summary>
+  [Test]
+  public async Task IsExpired_HandlesLocalTimes() {
+    var notExpired = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser));
+    var expired = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.Now.AddMinutes(-60), DateTime.Now.AddMinutes(-30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser));
+
+    await Assert.That(notExpired.IsExpired).IsFalse();
+    await Assert.That(expired.IsExpired).IsTrue();
+  }
+
+  [Test]
+  public async Task FromHttpRequestCookie_ReturnsNullForExpiredCookie() {
+    var ticket = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddHours(-1), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser));
+    var cookie = ticket.ToCookie("/app");
+
+    var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+    context.Request.Headers["Cookie"] = $"{cookie.Name}={cookie.Value}";
+
+    var restoredTicket = AuthTicket.FromHttpRequestCookie(context.Request, Constants.DefaultAuthCookieName);
+
+    await Assert.That(restoredTicket).IsNull();
+  }
+
+  [Test]
+  public async Task FromHttpRequestCookie_ReturnsNullForExpiredSudoCookie() {
+    var ticket = new AuthTicket(1, @"DOMAIN\admin1", DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddHours(-1), false, new AuthTicketUserData(AuthTicketLevel.ReadAndWriteAdmin));
+    var cookie = ticket.ToCookie("/app", Constants.SudoAuthCookieName);
+
+    var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+    context.Request.Headers["Cookie"] = $"{cookie.Name}={cookie.Value}";
+
+    var restoredTicket = AuthTicket.FromHttpRequestCookie(context.Request, Constants.SudoAuthCookieName);
+
+    await Assert.That(restoredTicket).IsNull();
   }
 
   [Test]
@@ -190,8 +238,10 @@ public class AuthTicketTests {
     await Assert.That(ticket.Name).IsEqualTo($@"{userInfo.Domain}\{userInfo.Username}");
     await Assert.That(ticket.UserData.Level).IsEqualTo(AuthTicketLevel.ReadOnlyAdmin);
     await Assert.That(ticket.IsPersistent).IsFalse();
-    await Assert.That(ticket.IssueDate).IsLessThanOrEqualTo(DateTime.Now);
+    await Assert.That(ticket.IssueDate.Kind).IsEqualTo(DateTimeKind.Utc);
+    await Assert.That(ticket.IssueDate).IsLessThanOrEqualTo(DateTime.UtcNow);
     await Assert.That(ticket.Expiration).IsGreaterThan(ticket.IssueDate);
+    await Assert.That(ticket.IsExpired).IsFalse();
   }
 
   [Test]
@@ -204,7 +254,7 @@ public class AuthTicketTests {
     await Assert.That(ticket.Name).IsEqualTo(identity.Name);
     await Assert.That(ticket.UserData.Level).IsEqualTo(AuthTicketLevel.ReadOnlyAdmin);
     await Assert.That(ticket.IsPersistent).IsFalse();
-    await Assert.That(ticket.IssueDate).IsLessThanOrEqualTo(DateTime.Now);
+    await Assert.That(ticket.IssueDate).IsLessThanOrEqualTo(DateTime.UtcNow);
     await Assert.That(ticket.Expiration).IsGreaterThan(ticket.IssueDate);
   }
 
@@ -258,7 +308,41 @@ public class AuthTicketTests {
 
     var cookie = ticket.ToCookie("/app");
 
-    await Assert.That(cookie.Expires).IsEqualTo(expiration);
+    // the ticket stores the expiration in UTC
+    await Assert.That(cookie.Expires).IsEqualTo(expiration.ToUniversalTime());
+  }
+
+  [Test]
+  public async Task Constructor_ConvertsLocalDatesToUtc() {
+    var issueDate = DateTime.Now;
+    var expiration = issueDate.AddMinutes(30);
+
+    var ticket = new AuthTicket(1, @"DOMAIN\jdoe", issueDate, expiration, false, null);
+
+    await Assert.That(ticket.IssueDate.Kind).IsEqualTo(DateTimeKind.Utc);
+    await Assert.That(ticket.IssueDate).IsEqualTo(issueDate.ToUniversalTime());
+    await Assert.That(ticket.Expiration.Kind).IsEqualTo(DateTimeKind.Utc);
+    await Assert.That(ticket.Expiration).IsEqualTo(expiration.ToUniversalTime());
+  }
+
+  [Test]
+  public async Task Constructor_ThrowsForUnspecifiedDates() {
+    var unspecified = new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Unspecified);
+
+    await Assert.That(() => new AuthTicket(1, @"DOMAIN\jdoe", unspecified, DateTime.UtcNow, false, null)).Throws<ArgumentException>();
+    await Assert.That(() => new AuthTicket(1, @"DOMAIN\jdoe", DateTime.UtcNow, unspecified, false, null)).Throws<ArgumentException>();
+  }
+
+  [Test]
+  public async Task ExpirationSetter_ConvertsLocalDatesToUtcAndThrowsForUnspecifiedDates() {
+    var ticket = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.UtcNow, DateTime.UtcNow.AddMinutes(30), false, null);
+    var localExpiration = DateTime.Now.AddMonths(1);
+
+    ticket.Expiration = localExpiration;
+
+    await Assert.That(ticket.Expiration.Kind).IsEqualTo(DateTimeKind.Utc);
+    await Assert.That(ticket.Expiration).IsEqualTo(localExpiration.ToUniversalTime());
+    await Assert.That(() => ticket.Expiration = new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Unspecified)).Throws<ArgumentException>();
   }
 
   [Test]

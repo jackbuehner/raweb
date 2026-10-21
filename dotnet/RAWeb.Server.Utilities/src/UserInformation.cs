@@ -729,7 +729,8 @@ public class UserInformation {
       return contextUserInfo;
     }
 
-    var userInfo = FromDownLevelLogonName(authTicket.Name, isSudo ? AuthTicketLevel.ReadAndWriteAdmin : authTicket.UserData.Level);
+    // when the sudo policy is enabled, the main auth ticket never grants write access by itself
+    var userInfo = FromDownLevelLogonName(authTicket.Name, isSudo ? AuthTicketLevel.ReadAndWriteAdmin : authTicket.MainAuthTicketLevel);
     if (userInfo != null) {
       request.HttpContext.Items[UserInformationContextKey] = userInfo; // store in request context
     }

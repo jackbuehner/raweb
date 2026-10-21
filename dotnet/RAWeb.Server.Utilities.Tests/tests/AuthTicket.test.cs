@@ -425,6 +425,27 @@ public class AuthTicketTests {
     await Assert.That(userInfo).IsNotNull();
   }
 
+  /// <summary>
+  /// The sudo policy is enabled by default, so a ReadAndWriteAdmin ticket in the main
+  /// auth cookie (such as a sudo ticket copied into it) must not grant write access.
+  /// </summary>
+  [Test]
+  public async Task MainAuthTicketLevel_CapsReadAndWriteAdminWhenSudoPolicyIsEnabled() {
+    var ticket = new AuthTicket(1, @"DOMAIN\admin1", DateTime.UtcNow, DateTime.UtcNow.AddHours(1), false, new AuthTicketUserData(AuthTicketLevel.ReadAndWriteAdmin));
+
+    await Assert.That(AuthTicket.IsSudoPolicyEnabled).IsTrue();
+    await Assert.That(ticket.MainAuthTicketLevel).IsEqualTo(AuthTicketLevel.ReadOnlyAdmin);
+  }
+
+  [Test]
+  public async Task MainAuthTicketLevel_DoesNotChangeLowerLevels() {
+    foreach (var level in new[] { AuthTicketLevel.ReadOnlyWorkspaceUser, AuthTicketLevel.ReadOnlyUser, AuthTicketLevel.ReadOnlyAdmin }) {
+      var ticket = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.UtcNow, DateTime.UtcNow.AddMinutes(30), false, new AuthTicketUserData(level));
+
+      await Assert.That(ticket.MainAuthTicketLevel).IsEqualTo(level);
+    }
+  }
+
   [Test]
   public async Task IsSudoTicketFor_TrueForSameUserWithReadAndWriteAdminLevel() {
     var session = new AuthTicket(1, @"DOMAIN\admin1", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyAdmin));

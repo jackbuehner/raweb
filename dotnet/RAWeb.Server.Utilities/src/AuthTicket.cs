@@ -59,6 +59,25 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
     return UserData.Level == AuthTicketLevel.ReadAndWriteAdmin && string.Equals(Name, mainAuthTicket.Name, StringComparison.OrdinalIgnoreCase);
   }
 
+  /// <summary>
+  /// Whether the sudo policy is enabled. When it is enabled, write access requires a sudo ticket
+  /// (from the .ASPXAUTH_SUDO cookie), and the main auth ticket is limited to <see cref="AuthTicketLevel.ReadOnlyAdmin"/>.
+  /// </summary>
+  public static bool IsSudoPolicyEnabled => PoliciesManager.RawPolicies["App.Auth.Sudo.Enabled"] != "false";
+
+  /// <summary>
+  /// The level that this ticket grants when it is used as the main auth ticket.
+  /// <br /><br />
+  /// When the sudo policy is enabled, the main auth ticket is capped at <see cref="AuthTicketLevel.ReadOnlyAdmin"/>
+  /// because write access must come from a sudo ticket. Without this cap, a sudo ticket placed in the main auth cookie
+  /// would grant write access without the sudo cookie and would be renewed as a long-lived session.
+  /// This also downgrades main auth tickets that were issued before the sudo policy was enabled.
+  /// </summary>
+  public AuthTicketLevel MainAuthTicketLevel =>
+    IsSudoPolicyEnabled && UserData.Level == AuthTicketLevel.ReadAndWriteAdmin
+      ? AuthTicketLevel.ReadOnlyAdmin
+      : UserData.Level;
+
 
   /// <summary>
   /// Creates a string containing an encrypted representation of the authentication ticket

@@ -1,0 +1,1 @@
+import{ft as e}from"./shared-Dxdd-Eq8.js";export{e as RouterLink};

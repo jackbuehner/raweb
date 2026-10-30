@@ -122,7 +122,7 @@ public sealed class NetUserInformation {
       return info.usri2_full_name;
     }
     finally {
-      NetApiBufferFree(netUserInfoPointer);
+      _ = NetApiBufferFree(netUserInfoPointer);
     }
   }
 
@@ -207,7 +207,7 @@ public sealed class NetUserInformation {
       }
     }
     finally {
-      NetApiBufferFree(netLocalGroupMembersPointer);
+      _ = NetApiBufferFree(netLocalGroupMembersPointer);
     }
 
     return false;
@@ -221,7 +221,7 @@ public sealed class NetUserInformation {
     // and the size of the domain name
     var sidBytesSize = 0;
     var domainNameLength = 0;
-    LookupAccountName(null, accountName, null, ref sidBytesSize, null, ref domainNameLength, out _);
+    _ = LookupAccountName(null, accountName, null, ref sidBytesSize, null, ref domainNameLength, out _);
     if (sidBytesSize == 0) {
       // no SID was found for this account name
       return null;

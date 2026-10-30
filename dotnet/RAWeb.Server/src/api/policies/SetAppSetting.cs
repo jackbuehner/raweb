@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using RAWeb.Server.Utilities;
 
@@ -14,11 +15,21 @@ internal static class SetAppSettingEndpoint {
       return Results.Forbid();
     }
 
-    // read the value as plain text from the request body
-    using var reader = new StreamReader(ctx.Request.Body);
-    var value = await reader.ReadToEndAsync();
+    // require the value to be a JSON string so that browsers send a CORS preflight request
+    // before cross-origin requests, which prevents forms on other sites from changing policies
+    if (!ctx.Request.HasJsonContentType()) {
+      return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
+    }
 
-    PoliciesManager.Set(key, value);
+    string? value;
+    try {
+      value = await ctx.Request.ReadFromJsonAsync(WebApiJsonSerializerContext.Default.String);
+    }
+    catch (JsonException) {
+      return Results.BadRequest("The request body must be a JSON string.");
+    }
+
+    PoliciesManager.Set(key, value ?? "");
     return Results.Ok();
   }
 }

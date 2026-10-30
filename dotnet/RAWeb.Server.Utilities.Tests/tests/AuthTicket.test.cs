@@ -313,6 +313,24 @@ public class AuthTicketTests {
   }
 
   [Test]
+  public async Task ToCookie_DefaultCookieUsesLaxSameSite() {
+    var ticket = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.UtcNow, DateTime.UtcNow.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser));
+
+    var cookie = ticket.ToCookie("/app");
+
+    await Assert.That(cookie.SameSite).IsEqualTo(Microsoft.AspNetCore.Http.SameSiteMode.Lax);
+  }
+
+  [Test]
+  public async Task ToCookie_SudoCookieUsesStrictSameSite() {
+    var ticket = new AuthTicket(1, @"DOMAIN\admin1", DateTime.UtcNow, DateTime.UtcNow.AddHours(1), false, new AuthTicketUserData(AuthTicketLevel.ReadAndWriteAdmin));
+
+    var cookie = ticket.ToCookie("/app", Constants.SudoAuthCookieName);
+
+    await Assert.That(cookie.SameSite).IsEqualTo(Microsoft.AspNetCore.Http.SameSiteMode.Strict);
+  }
+
+  [Test]
   public async Task Constructor_ConvertsLocalDatesToUtc() {
     var issueDate = DateTime.Now;
     var expiration = issueDate.AddMinutes(30);

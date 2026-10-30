@@ -456,6 +456,7 @@ internal static class AuthenticateEndpoint {
       Path = cookie.Path,
       HttpOnly = cookie.HttpOnly,
       Secure = cookie.Secure,
+      SameSite = cookie.SameSite,
       Expires = cookie.Expires == DateTime.MinValue ? null : (DateTimeOffset?)cookie.Expires
     });
 

@@ -243,7 +243,14 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
     }
 
     cookieName ??= Constants.DefaultAuthCookieName;
-    return new AuthTicketCookie(cookieName, encryptedToken, path, Expiration);
+    return new AuthTicketCookie(cookieName, encryptedToken, path, Expiration) {
+      // The sudo cookie is only needed by requests from RAWeb's own pages, so it can be strict.
+      // The main auth cookie must be lax so that it is sent when the MFA provider redirects
+      // back to RAWeb and when the user follows a link to RAWeb from another site.
+      SameSite = cookieName == Constants.SudoAuthCookieName
+        ? Microsoft.AspNetCore.Http.SameSiteMode.Strict
+        : Microsoft.AspNetCore.Http.SameSiteMode.Lax
+    };
   }
 
   /// <summary>
@@ -468,6 +475,9 @@ public sealed class AuthTicketCookie(string cookieName, string cookieValue, stri
   public string Path { get; private set; } = cookiePath;
   public bool HttpOnly { get; set; } = true;
   public bool Secure { get; set; } = false;
+  /// Browsers do not all default to Lax, so it must always be set explicitly.
+  /// It prevents browsers from sending the cookie with requests that other sites start.
+  public Microsoft.AspNetCore.Http.SameSiteMode SameSite { get; set; } = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
   public DateTime Expires { get; set; } = expires ?? DateTime.MinValue;
 }
 

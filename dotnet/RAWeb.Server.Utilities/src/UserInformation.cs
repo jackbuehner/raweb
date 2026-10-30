@@ -240,9 +240,12 @@ public class UserInformation {
       // look up the local account
       var sid = NetUserInformation.GetSidFromAccountName(username);
       if (sid is null) {
+        // remove accounts that have been deleted
+        RemoveFromUserCache(username, domain);
         return null;
       }
       if (NetUserInformation.IsLocalAccountDisabled(username)) {
+        // remove accounts that have been disabled
         RemoveFromUserCache(username, domain);
         return null;
       }
@@ -292,8 +295,8 @@ public class UserInformation {
   /// </summary>
   /// <param name="username">The SAM account name of the user.</param>
   /// <param name="domain">The domain to connect to.</param>
-  /// <returns>A tuple of (SID string, full name, resolved group array) or null if the account is disabled.</returns>
-  /// <exception cref="Exception">Thrown if the user is not found in the domain.</exception>
+  /// <returns>A tuple of (SID string, full name, resolved group array) or null if the account is disabled or does not exist.</returns>
+  /// <exception cref="Exception">Thrown if the domain controller cannot be reached or the search fails.</exception>
   /// <exception cref="GroupRetrievalException">Thrown if group retrieval fails.</exception>
   private static (string sid, string? fullName, GroupInformation[] groups)? GetDomainUserInfo(string username, string domain) {
     // open a connection to a domain controller and get the distinguished
@@ -310,8 +313,9 @@ public class UserInformation {
         "objectSid", "displayName", "distinguishedName", "userAccountControl"
     );
     var searchResp = (SearchResponse)connection.SendRequest(searchReq);
+    // the domain controller answered, but the account does not exist (e.g., it was deleted)
     if (searchResp.Entries.Count == 0) {
-      throw new Exception($"User '{username}' not found in domain '{domain}'.");
+      return null;
     }
 
     // check whether the account is disabled

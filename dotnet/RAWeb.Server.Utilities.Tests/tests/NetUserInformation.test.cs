@@ -76,6 +76,17 @@ public class NetUserInformationTests {
     await Assert.That(userInfo).IsNull();
   }
 
+  /// <summary>
+  /// Deleted accounts must not be able to use authentication tickets
+  /// that were created before the account was deleted.
+  /// </summary>
+  [Test]
+  public async Task FromPrincipal_ReturnsNullForNonExistentLocalAccount() {
+    var userInfo = UserInformation.FromPrincipal("nonexistent_xyz_12345", Environment.MachineName, AuthTicketLevel.ReadOnlyUser);
+
+    await Assert.That(userInfo).IsNull();
+  }
+
   [Test]
   public async Task GetFullName_ReturnsStringForCurrentUser() {
     var fullName = NetUserInformation.GetFullName(null, s_currentUserName);

@@ -118,7 +118,7 @@ internal static class CompileDetailsEndpoint {
       ctx.Response.Cookies.Append(cookie.Name, cookie.Value, new CookieOptions {
         Path = cookie.Path,
         HttpOnly = cookie.HttpOnly,
-        Secure = cookie.Secure,
+        Secure = ctx.Request.IsHttps,
         SameSite = cookie.SameSite,
         Expires = cookie.Expires == DateTime.MinValue ? null : (DateTimeOffset?)cookie.Expires
       });

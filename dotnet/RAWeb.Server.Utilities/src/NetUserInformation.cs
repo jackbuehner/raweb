@@ -136,6 +136,26 @@ public sealed class NetUserInformation {
     return fullName != null;
   }
 
+  private const int UF_ACCOUNTDISABLE = 0x0002;
+
+  /// <summary>
+  /// Whether the local user account is disabled.
+  /// </summary>
+  /// <exception cref="System.ComponentModel.Win32Exception">If the account information cannot be read.</exception>
+  public static bool IsLocalAccountDisabled(string username) {
+    var result = NetUserGetInfo(null, username, 2, out var netUserInfoPointer);
+    if (result != NERR_Success)
+      throw new System.ComponentModel.Win32Exception(result);
+
+    try {
+      var info = Marshal.PtrToStructure<USER_INFO_2>(netUserInfoPointer);
+      return (info.usri2_flags & UF_ACCOUNTDISABLE) != 0;
+    }
+    finally {
+      _ = NetApiBufferFree(netUserInfoPointer);
+    }
+  }
+
   /// <summary>
   /// Determines whether the specified user SID is a member of the local Users group.
   /// </summary>

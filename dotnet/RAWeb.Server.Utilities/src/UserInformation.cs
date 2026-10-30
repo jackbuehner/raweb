@@ -242,6 +242,10 @@ public class UserInformation {
       if (sid is null) {
         return null;
       }
+      if (NetUserInformation.IsLocalAccountDisabled(username)) {
+        RemoveFromUserCache(username, domain);
+        return null;
+      }
       userSid = sid.ToString();
 
       // attempt to get the display name, falling back to the username if it is unavailable
@@ -257,7 +261,12 @@ public class UserInformation {
     }
     else {
       // look up the domain account via LDAP
-      (userSid, fullName, groups) = GetDomainUserInfo(username, domain);
+      var domainUserInfo = GetDomainUserInfo(username, domain);
+      if (domainUserInfo is null) {
+        RemoveFromUserCache(username, domain);
+        return null;
+      }
+      (userSid, fullName, groups) = domainUserInfo.Value;
     }
 
     var userInfo = new UserInformation(userSid, username, domain, fullName, groups, authTicketLevel);
@@ -283,10 +292,10 @@ public class UserInformation {
   /// </summary>
   /// <param name="username">The SAM account name of the user.</param>
   /// <param name="domain">The domain to connect to.</param>
-  /// <returns>A tuple of (SID string, full name, resolved group array).</returns>
+  /// <returns>A tuple of (SID string, full name, resolved group array) or null if the account is disabled.</returns>
   /// <exception cref="Exception">Thrown if the user is not found in the domain.</exception>
   /// <exception cref="GroupRetrievalException">Thrown if group retrieval fails.</exception>
-  private static (string sid, string? fullName, GroupInformation[] groups) GetDomainUserInfo(string username, string domain) {
+  private static (string sid, string? fullName, GroupInformation[] groups)? GetDomainUserInfo(string username, string domain) {
     // open a connection to a domain controller and get the distinguished
     // name of the connection's root domain so we can use it for searching
     using var connection = Management.LdapHelpers.OpenLdapConnection(domain);
@@ -298,15 +307,24 @@ public class UserInformation {
         $"(&(objectClass=user)(sAMAccountName={Management.LdapHelpers.LdapEscapeFilter(username)}))",
         SearchScope.Subtree,
         // the attributes we need to build the UserInformation object
-        "objectSid", "displayName", "distinguishedName"
+        "objectSid", "displayName", "distinguishedName", "userAccountControl"
     );
     var searchResp = (SearchResponse)connection.SendRequest(searchReq);
     if (searchResp.Entries.Count == 0) {
       throw new Exception($"User '{username}' not found in domain '{domain}'.");
     }
 
-    // extract the SID, distinguished name, and display name from the matched entry
+    // check whether the account is disabled
     var entry = searchResp.Entries[0];
+    const int ADS_UF_ACCOUNTDISABLE = 0x0002;
+    var userAccountControl = entry.Attributes["userAccountControl"]?.Count > 0
+        ? int.Parse((string)entry.Attributes["userAccountControl"][0])
+        : 0;
+    if ((userAccountControl & ADS_UF_ACCOUNTDISABLE) != 0) {
+      return null;
+    }
+
+    // extract the SID, distinguished name, and display name from the matched entry
     var sidBytes = (byte[])entry.Attributes["objectSid"].GetValues(typeof(byte[]))[0];
     var userSid = new SecurityIdentifier(sidBytes, 0).ToString();
     var userDN = (string)entry.Attributes["distinguishedName"][0];
@@ -527,6 +545,16 @@ public class UserInformation {
     }
 
     return [.. list];
+  }
+
+  /// <summary>
+  /// Removes the user from the user cache (if enabled) so that the cached information
+  /// cannot be used for an account that can no longer sign in (e.g., a disabled account).
+  /// </summary>
+  private static void RemoveFromUserCache(string username, string domain) {
+    if (PoliciesManager.RawPolicies["UserCache.Enabled"] == "true") {
+      new UserCacheDatabaseHelper().RemoveUser(username, domain);
+    }
   }
 
   /// <summary>

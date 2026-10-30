@@ -215,6 +215,31 @@ public sealed class UserCacheDatabaseHelper {
     }
 
     /// <summary>
+    /// Removes a user and their group memberships from the cache.
+    /// <br /><br />
+    /// Use this when an account can no longer sign in (e.g., it is disabled) so that the cache
+    /// cannot be used for the account, including when the domain controller cannot be reached.
+    /// </summary>
+    public void RemoveUser(string username, string domain) {
+        using (var connection = new SqliteConnection(_dbPath)) {
+            connection.Open();
+            using (var transaction = connection.BeginTransaction()) {
+                var deleteSql = @"
+                    DELETE FROM UserGroupMap WHERE UserSid IN (SELECT Sid FROM Users WHERE Username = @Username AND Domain = @Domain);
+                    DELETE FROM Users WHERE Username = @Username AND Domain = @Domain;
+                ";
+                using (var command = new SqliteCommand(deleteSql, connection, transaction)) {
+                    command.Parameters.AddWithValue("@Username", username);
+                    command.Parameters.AddWithValue("@Domain", domain);
+                    command.ExecuteNonQuery();
+                }
+
+                transaction.Commit();
+            }
+        }
+    }
+
+    /// <summary>
     /// Retrieves a user's information from the cache by their SID or by their username and domain.
     /// <br /><br />
     /// If maxAge is greater than zero, only returns the user if their cached information

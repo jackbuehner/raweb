@@ -93,7 +93,7 @@ public class WorkspaceBuilder {
             var authUserJson = JsonSerializer.Serialize(_authenticatedUserInfo, WorkspaceDebugJsonContext.Default.UserInformation);
             _resourcesBuffer.Append($"<!-- Authenticated User Information: {authUserJson.Replace("--", "==")} -->\r\n");
 
-            var policiesJson = JsonSerializer.Serialize(PoliciesManager.RawPolicies.Value, WorkspaceDebugJsonContext.Default.DictionaryStringString);
+            var policiesJson = JsonSerializer.Serialize(PoliciesManager.RedactSecrets(PoliciesManager.RawPolicies.Value), WorkspaceDebugJsonContext.Default.DictionaryStringString);
             _resourcesBuffer.Append($"<!-- Current Policies: {policiesJson.Replace("--", "==")} -->\r\n");
 
             var supportsCentralizedPublishing = PoliciesManager.RawPolicies["RegistryApps.Enabled"] != "true";

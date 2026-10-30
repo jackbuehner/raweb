@@ -89,6 +89,90 @@ public sealed class PoliciesManager {
   }
 
   /// <summary>
+  /// The policies whose values contain secrets. Each value is one or more connections in the
+  /// format <c>clientId:clientSecret@hostname@domainsCSV</c>, separated by semicolons.
+  /// </summary>
+  private static readonly string[] s_policiesWithSecrets = ["App.Auth.MFA.Duo", "App.Auth.MFA.LoginTC"];
+
+  /// <summary>
+  /// Replaces a secret when policies are read through the web API so that the secret cannot be
+  /// read back (e.g., by read-only administrators). It must not contain ':', '@', ';', or ','.
+  /// </summary>
+  public const string RedactedSecret = "********";
+
+  /// <summary>
+  /// Returns the policy value with each connection's secret replaced by <see cref="RedactedSecret"/>.
+  /// Values of policies that do not contain secrets are returned unchanged.
+  /// </summary>
+  public static string? RedactSecrets(string key, string? value) {
+    if (value is null || !s_policiesWithSecrets.Contains(key)) {
+      return value;
+    }
+
+    return string.Join(';', value.Split(';').Select(connection => {
+      var (clientId, _, rest) = SplitConnectionSecret(connection);
+      return clientId is null ? connection : $"{clientId}:{RedactedSecret}{rest}";
+    }));
+  }
+
+  /// <summary>
+  /// Returns a copy of the policies with the secrets replaced by <see cref="RedactedSecret"/>.
+  /// </summary>
+  public static Dictionary<string, string> RedactSecrets(Dictionary<string, string> policies) {
+    return policies.ToDictionary(kv => kv.Key, kv => RedactSecrets(kv.Key, kv.Value) ?? "");
+  }
+
+  /// <summary>
+  /// Replaces each <see cref="RedactedSecret"/> in a new policy value with the secret that is
+  /// currently stored for the same client ID. This allows administrators to change other parts
+  /// of a connection (e.g., its domains) without entering the secret again.
+  /// </summary>
+  /// <exception cref="ArgumentException">When a connection has the redacted secret but no stored
+  /// secret exists for its client ID (e.g., a new connection).</exception>
+  public static string RestoreRedactedSecrets(string key, string value) {
+    if (!s_policiesWithSecrets.Contains(key) || !value.Contains(RedactedSecret)) {
+      return value;
+    }
+
+    // find the stored secret for each client ID
+    var storedSecrets = new Dictionary<string, string>();
+    foreach (var connection in (RawPolicies[key] ?? "").Split(';')) {
+      var (clientId, secret, _) = SplitConnectionSecret(connection);
+      if (clientId is not null) {
+        storedSecrets[clientId.Trim()] = secret!;
+      }
+    }
+
+    return string.Join(';', value.Split(';').Select(connection => {
+      var (clientId, secret, rest) = SplitConnectionSecret(connection);
+      if (clientId is null || secret != RedactedSecret) {
+        return connection;
+      }
+      if (!storedSecrets.TryGetValue(clientId.Trim(), out var storedSecret)) {
+        throw new System.ArgumentException($"The secret for '{clientId.Trim()}' must be entered.");
+      }
+      return $"{clientId}:{storedSecret}{rest}";
+    }));
+  }
+
+  /// <summary>
+  /// Splits a connection (<c>clientId:clientSecret@hostname@domainsCSV</c>) into its client ID,
+  /// its secret, and the rest of the connection (starting at the first '@'). The client ID is
+  /// null if the connection does not contain a secret.
+  /// </summary>
+  private static (string? ClientId, string? Secret, string Remainder) SplitConnectionSecret(string connection) {
+    var atIndex = connection.IndexOf('@');
+    var credentials = atIndex >= 0 ? connection[..atIndex] : connection;
+    var rest = atIndex >= 0 ? connection[atIndex..] : "";
+
+    var colonIndex = credentials.IndexOf(':');
+    if (colonIndex < 0) {
+      return (null, null, rest);
+    }
+    return (credentials[..colonIndex], credentials[(colonIndex + 1)..], rest);
+  }
+
+  /// <summary>
   /// Writes the provided policies dictionary back to the appSettings.config file.
   /// </summary>
   /// <param name="policies"></param>

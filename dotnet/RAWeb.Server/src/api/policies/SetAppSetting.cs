@@ -29,7 +29,16 @@ internal static class SetAppSettingEndpoint {
       return Results.BadRequest("The request body must be a JSON string.");
     }
 
-    PoliciesManager.Set(key, value ?? "");
+    // secrets are redacted when policies are read, so keep the stored
+    // secret for any connection that still has the redacted secret
+    try {
+      value = PoliciesManager.RestoreRedactedSecrets(key, value ?? "");
+    }
+    catch (ArgumentException ex) {
+      return Results.BadRequest(ex.Message);
+    }
+
+    PoliciesManager.Set(key, value);
     return Results.Ok();
   }
 }

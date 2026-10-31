@@ -357,6 +357,13 @@ public sealed class NetUserInformation {
         ? null
         : domain;
 
+    // only allow the local machine, the machine's own domain, and trusted domains so that
+    // the server never connects to an arbitrary domain
+    if (resolvedDomain is not null && !TrustedDomains.IsAllowedLogonDomain(resolvedDomain)) {
+      const int ERROR_NO_SUCH_DOMAIN = 1355;
+      return (false, new System.ComponentModel.Win32Exception(ERROR_NO_SUCH_DOMAIN).Message);
+    }
+
     var errorCode = NetUserChangePassword(resolvedDomain, username, oldPassword, newPassword);
     if (errorCode == 0) {
       return (true, null);

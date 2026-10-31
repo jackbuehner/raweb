@@ -30,6 +30,9 @@ internal static class UseWindowsIdentityAsUserInfoMiddleware {
       // so that the user can add and edit file resources
       userInfo.Groups = [.. userInfo.Groups, new GroupInformation("S-1-5-32-544")];
 
+      // since we run as the current user, we do not need to check this
+      userInfo.PasswordLastSet = null;
+
       // UserInformation.FromHttpRequest always checks the http
       // context before doing lookups
       context.Items[UserInformation.UserInformationContextKey] = userInfo;

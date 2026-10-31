@@ -48,6 +48,32 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
   }
 
   /// <summary>
+  /// How far apart two password-last-set values can be and still be treated as the same password.
+  /// Local accounts only report the password's age in whole seconds, so their values drift slightly.
+  /// </summary>
+  private static readonly TimeSpan s_passwordLastSetTolerance = TimeSpan.FromSeconds(5);
+
+  /// <summary>
+  /// Whether the account's password changed after this ticket was issued, which means that
+  /// the ticket must not be accepted. This ends existing sessions when a user changes their password.
+  /// <br /><br />
+  /// Tickets record the account's password-last-set value when they are issued.
+  /// Tickets that do not have this value  are compared using their issue date.
+  /// </summary>
+  /// <param name="currentPasswordLastSet">
+  /// The account's current <see cref="UserInformation.PasswordLastSet"/>.
+  /// If null (e.g., the anonymous user), the ticket is not rejected.
+  /// </param>
+  public bool WasIssuedForOlderPassword(DateTime? currentPasswordLastSet) {
+    if (currentPasswordLastSet is null) {
+      return false;
+    }
+
+    var ticketPasswordLastSet = UserData.PasswordLastSet ?? IssueDate;
+    return currentPasswordLastSet.Value - ticketPasswordLastSet > s_passwordLastSetTolerance;
+  }
+
+  /// <summary>
   /// Determines whether this ticket is a valid sudo ticket for the specified auth ticket.
   /// <br /><br />
   /// A sudo ticket only elevates the session of the user who created it, so the ticket must have
@@ -371,16 +397,46 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
 
   /// <summary>
   /// Creates an encrypted forms authentication ticket for the specified user.
+  /// <br /><br />
+  /// The ticket records the user's current <see cref="UserInformation.PasswordLastSet"/>.
+  /// To extend an existing session, use <see cref="Renew"/>.
   /// </summary>
   /// <param name="userInfo"></param>
   /// <returns></returns>
   public static AuthTicket FromUserInformation(UserInformation userInfo, AuthTicketLevel level) {
+    return Create(userInfo, level, userInfo.PasswordLastSet);
+  }
+
+  /// <summary>
+  /// Creates a new ticket for the same session with a later expiration.
+  /// <br /><br />
+  /// The new ticket keeps this ticket's password-last-set value instead of reading the account's current
+  /// value. Otherwise, a session renewed while the current value is unknown (e.g., the domain controller
+  /// cannot be reached) would lose track of which password it was signed in with and would survive a
+  /// password change. Tickets from older versions of RAWeb do not have the value, so they get the current one.
+  /// <br /><br />
+  /// Only renew a ticket after it has been accepted for the request (e.g., by <see cref="UserInformation.FromHttpRequest"/>).
+  /// </summary>
+  /// <param name="userInfo">The user for which this ticket was accepted.</param>
+  /// <param name="expiration">When the renewed ticket expires.</param>
+  /// <exception cref="ArgumentException">If <paramref name="userInfo"/> is not the user to which this ticket belongs.</exception>
+  public AuthTicket Renew(UserInformation userInfo, DateTime expiration) {
+    if (!string.Equals(Name, userInfo.Domain + "\\" + userInfo.Username, StringComparison.OrdinalIgnoreCase)) {
+      throw new ArgumentException("The user information does not belong to this ticket.", nameof(userInfo));
+    }
+
+    var renewed = Create(userInfo, userInfo.AuthTicketLevel, UserData.PasswordLastSet ?? userInfo.PasswordLastSet);
+    renewed.Expiration = expiration;
+    return renewed;
+  }
+
+  private static AuthTicket Create(UserInformation userInfo, AuthTicketLevel level, DateTime? passwordLastSet) {
     var version = 1;
     var issueDate = DateTime.UtcNow;
     var expirationDate = issueDate.AddMinutes(30);
     var isPersistent = false;
 
-    var userData = new AuthTicketUserData(level);
+    var userData = new AuthTicketUserData(level, passwordLastSet);
 
     if (PoliciesManager.RawPolicies["UserCache.Enabled"] == "true") {
       var dbHelper = new UserCacheDatabaseHelper();
@@ -481,7 +537,13 @@ public sealed class AuthTicketCookie(string cookieName, string cookieValue, stri
   public DateTime Expires { get; set; } = expires ?? DateTime.MinValue;
 }
 
-public record AuthTicketUserData([property: JsonPropertyName("level")] AuthTicketLevel Level);
+/// <param name="Level">The access level that the ticket grants.</param>
+/// <param name="PasswordLastSet">When the account's password was last changed at the time the ticket was issued.
+/// See <see cref="AuthTicket.WasIssuedForOlderPassword"/>.</param>
+public record AuthTicketUserData(
+  [property: JsonPropertyName("level")] AuthTicketLevel Level,
+  [property: JsonPropertyName("pwdLastSet"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTime? PasswordLastSet = null
+);
 
 [JsonSerializable(typeof(AuthTicketUserData))]
 internal partial class AuthTicketJsonContext : JsonSerializerContext { }

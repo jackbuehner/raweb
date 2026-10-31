@@ -448,7 +448,10 @@ internal static class AuthenticateEndpoint {
     }
   }
 
-  private static IResult CreateAuthCookieResponse(HttpContext ctx, string username, string domain, AuthTicket ticket, string? returnUrl = null, bool isSudo = false) {
+  /// <summary>
+  /// Adds the authentication cookie (or the sudo cookie) for the ticket to the response.
+  /// </summary>
+  internal static void AppendAuthCookie(HttpContext ctx, AuthTicket ticket, bool isSudo = false) {
     var cookiePath = ctx.Request.PathBase.HasValue ? ctx.Request.PathBase + "/" : "/"; // set the path to the application root
     var cookie = ticket.ToCookie(cookiePath, cookieName: isSudo ? Constants.SudoAuthCookieName : null);
 
@@ -459,6 +462,10 @@ internal static class AuthenticateEndpoint {
       SameSite = cookie.SameSite,
       Expires = cookie.Expires == DateTime.MinValue ? null : (DateTimeOffset?)cookie.Expires
     });
+  }
+
+  private static IResult CreateAuthCookieResponse(HttpContext ctx, string username, string domain, AuthTicket ticket, string? returnUrl = null, bool isSudo = false) {
+    AppendAuthCookie(ctx, ticket, isSudo);
 
     if (!string.IsNullOrEmpty(returnUrl)) {
       return Results.Redirect(returnUrl);

@@ -230,7 +230,9 @@ public class AuthTicketTests {
       domain: "DOMAIN",
       fullName: "J. Doe",
       groups: [new GroupInformation("S-1-4-447-3", "Group1")]
-    );
+    ) {
+      PasswordLastSet = null // DOMAIN does not exist, so skip the directory lookup
+    };
 
     var ticket = AuthTicket.FromUserInformation(userInfo, AuthTicketLevel.ReadOnlyAdmin);
 
@@ -281,7 +283,9 @@ public class AuthTicketTests {
       sid: "S-1-4-447-2",
       username: "jdoe",
       domain: "DOMAIN"
-    );
+    ) {
+      PasswordLastSet = null // DOMAIN does not exist, so skip the directory lookup
+    };
 
     var ticket = AuthTicket.FromUserInformation(userInfo, AuthTicketLevel.ReadOnlyUser);
 
@@ -294,7 +298,9 @@ public class AuthTicketTests {
       sid: "S-1-4-447-2",
       username: "jdoe",
       domain: "DOMAIN"
-    );
+    ) {
+      PasswordLastSet = null // DOMAIN does not exist, so skip the directory lookup
+    };
 
     var ticket = AuthTicket.FromUserInformation(userInfo, AuthTicketLevel.ReadAndWriteAdmin);
 

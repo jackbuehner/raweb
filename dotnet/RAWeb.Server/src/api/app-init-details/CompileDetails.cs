@@ -108,9 +108,9 @@ internal static class CompileDetailsEndpoint {
 
     // if the user is authenticated, always renew the cookie
     // so that active users do not get logged out after inactivity
-    if (userInfo is not null) {
-      var newAuthTicket = AuthTicket.FromUserInformation(userInfo, authUser.AuthTicketLevel);
-      newAuthTicket.Expiration = DateTime.UtcNow.AddMonths(1); // renew for 1 month
+    var currentAuthTicket = AuthTicket.FromHttpRequestCookie(ctx.Request);
+    if (userInfo is not null && currentAuthTicket is not null) {
+      var newAuthTicket = currentAuthTicket.Renew(userInfo, DateTime.UtcNow.AddMonths(1)); // renew for 1 month
 
       var cookiePath = ctx.Request.PathBase.HasValue ? ctx.Request.PathBase + "/" : "/"; // set the path to the application root
       var cookie = newAuthTicket.ToCookie(cookiePath);

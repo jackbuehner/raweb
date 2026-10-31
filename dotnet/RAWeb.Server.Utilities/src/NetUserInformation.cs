@@ -139,6 +139,29 @@ public sealed class NetUserInformation {
   private const int UF_ACCOUNTDISABLE = 0x0002;
 
   /// <summary>
+  /// Gets when a local account's password was last changed (UTC).
+  /// <br /><br />
+  /// Windows only reports the password's age in whole seconds, so the result can differ
+  /// by about a second between calls.
+  /// </summary>
+  /// <returns>Whether the account was found.</returns>
+  public static bool TryGetLocalPasswordLastSet(string username, out DateTime passwordLastSet) {
+    passwordLastSet = default;
+    var result = NetUserGetInfo(null, username, 2, out var netUserInfoPointer);
+    if (result != 0 || netUserInfoPointer == IntPtr.Zero) {
+      return false;
+    }
+    try {
+      var info = Marshal.PtrToStructure<USER_INFO_2>(netUserInfoPointer);
+      passwordLastSet = DateTime.UtcNow.AddSeconds(-(uint)info.usri2_password_age);
+      return true;
+    }
+    finally {
+      _ = NetApiBufferFree(netUserInfoPointer);
+    }
+  }
+
+  /// <summary>
   /// Whether the local user account is disabled.
   /// </summary>
   /// <exception cref="System.ComponentModel.Win32Exception">If the account information cannot be read.</exception>

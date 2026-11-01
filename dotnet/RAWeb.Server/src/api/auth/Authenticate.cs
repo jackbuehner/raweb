@@ -45,7 +45,7 @@ internal static class AuthenticateEndpoint {
       }
     }
     catch (ValidateCredentialsException ex) {
-      return Results.Ok(
+      return Results.BadRequest(
           new AuthResponse {
             Success = false,
             Error = ex.Message,
@@ -95,7 +95,7 @@ internal static class AuthenticateEndpoint {
       }
     }
     catch (ValidateCredentialsException ex) {
-      return Results.Ok(
+      return Results.BadRequest(
           new AuthResponse {
             Success = false,
             Error = ex.Message,
@@ -154,7 +154,7 @@ internal static class AuthenticateEndpoint {
                 }),
               });
               const msg = document.getElementById('msg');
-              if (res.ok) {
+              if (res.ok || res.status === 400) {
                 const data = await res.json();
                 msg.textContent = data.success ? 'Credentials validated for: ' + data.username : 'Error: ' + data.error;
                 msg.style.color = data.success ? 'green' : 'red';

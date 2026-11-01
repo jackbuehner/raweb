@@ -79,7 +79,7 @@ internal static class ChangePasswordEndpoint {
             // compare SIDs because the domain may be written differently (e.g., contoso.com instead of CONTOSO)
             var isSameAccount = sessionUser is not null && !sessionUser.IsAnonymousUser && identity.User?.Value == sessionUser.Sid;
             if (isSameAccount) {
-                AuthenticateEndpoint.AppendAuthCookie(ctx, ticket);
+                AuthenticateEndpoint.StartAuthSession(ctx, ticket);
             }
         }
         catch (Exception ex) {

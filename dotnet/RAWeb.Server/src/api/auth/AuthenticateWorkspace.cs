@@ -34,6 +34,8 @@ internal static class AuthenticateWorkspaceEndpoint {
   }
 
   private static IResult CreateWorkspaceAuthResponse(AuthTicket ticket) {
+    // the ticket is only accepted while its session exists
+    new AuthSessionStore().Add(ticket);
     return Results.Content(ticket.ToEncryptedToken(), "application/x-msts-webfeed-login; charset=utf-8");
   }
 

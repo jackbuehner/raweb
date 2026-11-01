@@ -408,35 +408,40 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
   }
 
   /// <summary>
-  /// Creates a new ticket for the same session with a later expiration.
+  /// Creates a new ticket for the same sign-in session with a later expiration.
   /// <br /><br />
   /// The new ticket keeps this ticket's password-last-set value instead of reading the account's current
   /// value. Otherwise, a session renewed while the current value is unknown (e.g., the domain controller
   /// cannot be reached) would lose track of which password it was signed in with and would survive a
-  /// password change. Tickets from older versions of RAWeb do not have the value, so they get the current one.
+  /// password change. Tickets without the value (e.g., it was unknown when they were issued) get the current one.
   /// <br /><br />
   /// Only renew a ticket after it has been accepted for the request (e.g., by <see cref="UserInformation.FromHttpRequest"/>).
   /// </summary>
   /// <param name="userInfo">The user for which this ticket was accepted.</param>
   /// <param name="expiration">When the renewed ticket expires.</param>
   /// <exception cref="ArgumentException">If <paramref name="userInfo"/> is not the user to which this ticket belongs.</exception>
+  /// <exception cref="InvalidOperationException">If this ticket does not have an auth session ID.</exception>
   public AuthTicket Renew(UserInformation userInfo, DateTime expiration) {
     if (!string.Equals(Name, userInfo.Domain + "\\" + userInfo.Username, StringComparison.OrdinalIgnoreCase)) {
       throw new ArgumentException("The user information does not belong to this ticket.", nameof(userInfo));
     }
 
-    var renewed = Create(userInfo, userInfo.AuthTicketLevel, UserData.PasswordLastSet ?? userInfo.PasswordLastSet);
+    if (UserData.AuthSessionId is null) {
+      throw new InvalidOperationException("A ticket without an auth session ID cannot be renewed.");
+    }
+
+    var renewed = Create(userInfo, userInfo.AuthTicketLevel, UserData.PasswordLastSet ?? userInfo.PasswordLastSet, UserData.AuthSessionId);
     renewed.Expiration = expiration;
     return renewed;
   }
 
-  private static AuthTicket Create(UserInformation userInfo, AuthTicketLevel level, DateTime? passwordLastSet) {
+  private static AuthTicket Create(UserInformation userInfo, AuthTicketLevel level, DateTime? passwordLastSet, string? authSessionId = null) {
     var version = 1;
     var issueDate = DateTime.UtcNow;
     var expirationDate = issueDate.AddMinutes(30);
     var isPersistent = false;
 
-    var userData = new AuthTicketUserData(level, passwordLastSet);
+    var userData = new AuthTicketUserData(level, passwordLastSet, authSessionId ?? AuthSessionStore.NewAuthSessionId());
 
     if (PoliciesManager.RawPolicies["UserCache.Enabled"] == "true") {
       var dbHelper = new UserCacheDatabaseHelper();
@@ -517,6 +522,12 @@ public sealed class AuthTicket(int version, string name, DateTime issueDate, Dat
         return null;
       }
 
+      // the sign-in session must still be valid on the server (e.g., the user has not signed out);
+      // tickets without an auth session ID (from older versions of RAWeb) are never accepted
+      if (authTicket.UserData.AuthSessionId is null || !new AuthSessionStore().IsActive(authTicket)) {
+        return NoValidTicket();
+      }
+
       return authTicket;
     }
     catch {
@@ -538,11 +549,21 @@ public sealed class AuthTicketCookie(string cookieName, string cookieValue, stri
 }
 
 /// <param name="Level">The access level that the ticket grants.</param>
-/// <param name="PasswordLastSet">When the account's password was last changed at the time the ticket was issued.
-/// See <see cref="AuthTicket.WasIssuedForOlderPassword"/>.</param>
+/// <param name="PasswordLastSet">
+/// When the account's password was last changed at the time the ticket was issued.
+/// See <see cref="AuthTicket.WasIssuedForOlderPassword"/>.
+/// </param>
+/// <param name="AuthSessionId">
+/// The sign-in session to which the ticket belongs. Renewed tickets keep the
+/// same auth session ID.
+/// A ticket is only accepted while its sign-in session is in the
+/// <see cref="AuthSessionStore"/>, so tickets without an auth session ID are
+/// never accepted.
+/// </param>
 public record AuthTicketUserData(
   [property: JsonPropertyName("level")] AuthTicketLevel Level,
-  [property: JsonPropertyName("pwdLastSet"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTime? PasswordLastSet = null
+  [property: JsonPropertyName("pwdLastSet"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTime? PasswordLastSet = null,
+  [property: JsonPropertyName("authSessionId"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AuthSessionId = null
 );
 
 [JsonSerializable(typeof(AuthTicketUserData))]

@@ -106,7 +106,8 @@ public class AuthTicketTests {
 
   [Test]
   public async Task FromHttpRequestCookie_ReturnsTicketForValidCookie() {
-    var ticket = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser));
+    var ticket = new AuthTicket(1, @"DOMAIN\jdoe", DateTime.Now, DateTime.Now.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser, null, AuthSessionStore.NewAuthSessionId()));
+    new AuthSessionStore().Add(ticket); // tickets are only accepted while their sign-in session exists
     var cookie = ticket.ToCookie("/app");
 
     var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
@@ -411,6 +412,9 @@ public class AuthTicketTests {
   }
 
   private static Microsoft.AspNetCore.Http.DefaultHttpContext CreateContextWithAuthCookie(AuthTicket ticket) {
+    // tickets are only accepted while their session exists, so start it like the sign-in endpoints do
+    new AuthSessionStore().Add(ticket);
+
     var cookie = ticket.ToCookie("/");
     var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
     context.Request.Headers["Cookie"] = $"{cookie.Name}={cookie.Value}";

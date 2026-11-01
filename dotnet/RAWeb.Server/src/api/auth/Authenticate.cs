@@ -449,9 +449,43 @@ internal static class AuthenticateEndpoint {
   }
 
   /// <summary>
-  /// Adds the authentication cookie (or the sudo cookie) for the ticket to the response.
+  /// Starts the ticket's sign-in session on the server and adds the
+  /// authentication cookie for the ticket to the response.
+  /// <br /><br />
+  /// Use this for every newly issued ticket. A ticket whose sign-in session
+  /// was not started is rejected.
+  /// <br /><br />
+  /// To extend an existing session, use <see cref="RenewAuthSession"/> instead.
   /// </summary>
-  internal static void AppendAuthCookie(HttpContext ctx, AuthTicket ticket, bool isSudo = false) {
+  internal static void StartAuthSession(HttpContext ctx, AuthTicket ticket, bool isSudo = false) {
+    new AuthSessionStore().Add(ticket);
+    WriteAuthCookie(ctx, ticket, isSudo);
+  }
+
+  /// <summary>
+  /// Extends the sign-in session of the request's authentication ticket and
+  /// adds the renewed ticket's cookie to the response.
+  /// <br /><br />
+  /// If the sign-in session ended while the request was running (e.g., the
+  /// user signed out in another tab), it is not extended and no cookie is added.
+  /// </summary>
+  /// <param name="currentTicket">The ticket was accepted for the API request.</param>
+  /// <param name="renewedTicket">The ticket from <see cref="AuthTicket.Renew"/>.</param>
+  internal static void RenewAuthSession(HttpContext ctx, AuthTicket currentTicket, AuthTicket renewedTicket) {
+    if (currentTicket.UserData.AuthSessionId != renewedTicket.UserData.AuthSessionId) {
+      throw new ArgumentException("The renewed ticket must belong to the same sign-in session.", nameof(renewedTicket));
+    }
+
+    if (new AuthSessionStore().Extend(renewedTicket)) {
+      WriteAuthCookie(ctx, renewedTicket);
+    }
+  }
+
+  /// <summary>
+  /// Adds the authentication cookie (or the sudo cookie) for the ticket to the response.
+  /// This does not start or extend the ticket's sign-in session.
+  /// </summary>
+  private static void WriteAuthCookie(HttpContext ctx, AuthTicket ticket, bool isSudo = false) {
     var cookiePath = ctx.Request.PathBase.HasValue ? ctx.Request.PathBase + "/" : "/"; // set the path to the application root
     var cookie = ticket.ToCookie(cookiePath, cookieName: isSudo ? Constants.SudoAuthCookieName : null);
 
@@ -465,7 +499,7 @@ internal static class AuthenticateEndpoint {
   }
 
   private static IResult CreateAuthCookieResponse(HttpContext ctx, string username, string domain, AuthTicket ticket, string? returnUrl = null, bool isSudo = false) {
-    AppendAuthCookie(ctx, ticket, isSudo);
+    StartAuthSession(ctx, ticket, isSudo);
 
     if (!string.IsNullOrEmpty(returnUrl)) {
       return Results.Redirect(returnUrl);

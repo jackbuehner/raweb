@@ -21,7 +21,7 @@ public class AuthTicketPasswordLastSetTests {
   private static readonly DateTime s_passwordSet = new(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc);
 
   private static AuthTicket CreateTicket(DateTime issueDate, DateTime? passwordLastSet) {
-    return new AuthTicket(1, @"DOMAIN\jdoe", issueDate, issueDate.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser, passwordLastSet));
+    return new AuthTicket(1, @"DOMAIN\jdoe", issueDate, issueDate.AddMinutes(30), false, new AuthTicketUserData(AuthTicketLevel.ReadOnlyUser, passwordLastSet, AuthSessionStore.NewAuthSessionId()));
   }
 
   [Test]

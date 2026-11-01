@@ -106,22 +106,13 @@ internal static class CompileDetailsEndpoint {
         supportsReadRegistryApps
     );
 
-    // if the user is authenticated, always renew the cookie
-    // so that active users do not get logged out after inactivity
+    // if the user is authenticated and still has an active auth session,
+    // always renew the cookie so that active users do not get logged out
+    // after the cookie and session expire.
     var currentAuthTicket = AuthTicket.FromHttpRequestCookie(ctx.Request);
     if (userInfo is not null && currentAuthTicket is not null) {
       var newAuthTicket = currentAuthTicket.Renew(userInfo, DateTime.UtcNow.AddMonths(1)); // renew for 1 month
-
-      var cookiePath = ctx.Request.PathBase.HasValue ? ctx.Request.PathBase + "/" : "/"; // set the path to the application root
-      var cookie = newAuthTicket.ToCookie(cookiePath);
-
-      ctx.Response.Cookies.Append(cookie.Name, cookie.Value, new CookieOptions {
-        Path = cookie.Path,
-        HttpOnly = cookie.HttpOnly,
-        Secure = ctx.Request.IsHttps,
-        SameSite = cookie.SameSite,
-        Expires = cookie.Expires == DateTime.MinValue ? null : (DateTimeOffset?)cookie.Expires
-      });
+      AuthenticateEndpoint.RenewAuthSession(ctx, currentAuthTicket, newAuthTicket);
     }
 
     var rdpSignableProperties = RdpSignableProperties.All

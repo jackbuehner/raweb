@@ -89,6 +89,22 @@ public sealed class PoliciesManager {
   }
 
   /// <summary>
+  /// The policies that cannot be changed through the web API. They can only be changed by
+  /// editing appSettings.config on the server.
+  /// </summary>
+  private static readonly string[] s_fileOnlyPolicies = [
+    "App.Auth.Anonymous",
+    "App.Auth.TestLoginForm.Enabled"
+  ];
+
+  /// <summary>
+  /// Whether the policy can only be changed by editing appSettings.config on the server.
+  /// </summary>
+  public static bool IsFileOnlyPolicy(string key) {
+    return s_fileOnlyPolicies.Contains(key, System.StringComparer.OrdinalIgnoreCase);
+  }
+
+  /// <summary>
   /// The policies whose values contain secrets. Each value is one or more connections in the
   /// format <c>clientId:clientSecret@hostname@domainsCSV</c>, separated by semicolons.
   /// </summary>

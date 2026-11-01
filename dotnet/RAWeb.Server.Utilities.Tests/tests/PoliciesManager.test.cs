@@ -501,4 +501,18 @@ public class PoliciesManagerTests {
 
     await Assert.That(restored).IsEqualTo(stored);
   }
+
+  [Test]
+  [Arguments("App.Auth.Anonymous")]
+  [Arguments("app.auth.anonymous")]
+  [Arguments("App.Auth.TestLoginForm.Enabled")]
+  [Arguments("app.auth.testloginform.enabled")]
+  public async Task IsFileOnlyPolicy_IncludesRestrictedPoliciesInAnyCase(string key) {
+    await Assert.That(IsFileOnlyPolicy(key)).IsTrue();
+  }
+
+  [Test]
+  public async Task IsFileOnlyPolicy_ExcludesOtherPolicies() {
+    await Assert.That(IsFileOnlyPolicy("App.Auth.MFA.Duo")).IsFalse();
+  }
 }

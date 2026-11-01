@@ -15,6 +15,10 @@ internal static class SetAppSettingEndpoint {
       return Results.Forbid();
     }
 
+    if (PoliciesManager.IsFileOnlyPolicy(key)) {
+      return Results.BadRequest("This policy can only be changed by editing appSettings.config on the server.");
+    }
+
     // require the value to be a JSON string so that browsers send a CORS preflight request
     // before cross-origin requests, which prevents forms on other sites from changing policies
     if (!ctx.Request.HasJsonContentType()) {

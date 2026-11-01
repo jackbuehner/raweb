@@ -114,8 +114,15 @@ internal static class AuthenticateEndpoint {
   /// during development. This is not intended for production use,
   /// but it may be helpful for quickly isolating login issues for
   /// users who are having issues with the web app login flow.
+  /// <br /><br />
+  /// The form is only available when the "App.Auth.TestLoginForm.Enabled" policy is "true".
+  /// That policy can only be set by editing appSettings.config on the server.
   /// </summary>
   private static IResult HandleTestLoginForm(HttpContext ctx) {
+    if (PoliciesManager.RawPolicies["App.Auth.TestLoginForm.Enabled"] != "true") {
+      return Results.NotFound();
+    }
+
     var authUser = UserInformation.FromHttpRequestSafe(ctx.Request);
 
     return Results.Content(
@@ -139,7 +146,7 @@ internal static class AuthenticateEndpoint {
           {{(authUser is not null
               ? $$"""
                 <div style="padding: 4px 16px; border: 1px solid lightgray; font-size: 90%;">
-                  <p>Currently authenticated as: {{authUser.Domain}}\{{authUser.Username}}</p>
+                  <p>Currently authenticated as: {{System.Net.WebUtility.HtmlEncode($"{authUser.Domain}\\{authUser.Username}")}}</p>
                 </div>
                 """
               : ""
@@ -148,7 +155,7 @@ internal static class AuthenticateEndpoint {
             document.getElementById('form').onsubmit = async (event) => {
               event.preventDefault();
               const formData = new FormData(event.target);
-              const res = await fetch('/api/auth/authenticate', {
+              const res = await fetch('authenticate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 

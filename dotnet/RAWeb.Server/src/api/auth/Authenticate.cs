@@ -8,6 +8,10 @@ using RAWeb.Server.Utilities;
 namespace RAWeb.Server.Api;
 
 internal static class AuthenticateEndpoint {
+  private static readonly Logger s_logger = new("auth");
+
+  private const string MfaFailedMessage = "Multi-factor authentication failed. Please sign in again.";
+
   internal static void Map(IEndpointRouteBuilder app) {
     app.MapPost("/api/auth/authenticate", HandleAuthenticate);
     app.MapPost("/api/auth/authenticate/sudo", HandleSudoAuthenticate);
@@ -204,7 +208,8 @@ internal static class AuthenticateEndpoint {
       return CreateMfaAuthCookieResponse(ctx, mfaState, result.Username, result.ReturnUrl);
     }
     catch (Exception ex) {
-      return Results.Ok(ex.Message);
+      s_logger.WriteLogline($"Could not verify the Duo response for {mfaState.Domain}\\{mfaState.Username}: {ex}");
+      return Results.Ok(MfaFailedMessage);
     }
   }
 
@@ -249,7 +254,8 @@ internal static class AuthenticateEndpoint {
       return CreateMfaAuthCookieResponse(ctx, mfaState, result.Username, result.ReturnUrl);
     }
     catch (Exception ex) {
-      return Results.Ok(ex.Message);
+      s_logger.WriteLogline($"Could not verify the LoginTC response for {mfaState.Domain}\\{mfaState.Username}: {ex}");
+      return Results.Ok(MfaFailedMessage);
     }
   }
 
@@ -397,11 +403,11 @@ internal static class AuthenticateEndpoint {
         );
       }
       catch (Exception ex) {
-        System.Diagnostics.Debug.WriteLine("Duo health check or authorization request failed: " + ex.Message);
+        s_logger.WriteLogline($"Duo health check or authorization request failed: {ex}");
         return Results.Ok(
           new AuthResponse {
             Success = false,
-            Error = ex.Message,
+            Error = "login.server.mfaUnavailable",
             Domain = credentials.Domain
           }
         );
@@ -426,11 +432,11 @@ internal static class AuthenticateEndpoint {
         );
       }
       catch (Exception ex) {
-        System.Diagnostics.Debug.WriteLine("LoginTC ping or authorization request failed: " + ex.Message);
+        s_logger.WriteLogline($"LoginTC ping or authorization request failed: {ex}");
         return Results.Ok(
           new AuthResponse {
             Success = false,
-            Error = ex.Message,
+            Error = "login.server.mfaUnavailable",
             Domain = credentials.Domain
           }
         );

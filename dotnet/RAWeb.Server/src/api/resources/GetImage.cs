@@ -128,6 +128,14 @@ internal static class GetImageEndpoint {
       var _theme = theme == "dark" ? ImageUtilities.ImageTheme.Dark : ImageUtilities.ImageTheme.Light;
       try {
         var imageResult = ImageUtilities.ImagePathToStream(rootedPath, maybeIconId, fallbackImage, _theme);
+
+        // the image may have come from the fallback instead of the managed resource,
+        // so the user must also be allowed to read the file that was actually read
+        if (!FileAccessInfo.CanAccessServedImage(imageResult.ImagePath, userInfo, out var servedPermStatus)) {
+          imageResult.ImageStream?.Dispose();
+          return Results.StatusCode(servedPermStatus);
+        }
+
         imageStream = imageResult.ImageStream;
 
         // if the result came from an embedded asset, check for a policy override

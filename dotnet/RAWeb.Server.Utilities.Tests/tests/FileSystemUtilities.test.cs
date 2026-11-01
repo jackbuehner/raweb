@@ -188,6 +188,40 @@ public class FileAccessInfoTests {
   }
 
   [Test]
+  public async Task CanAccessServedImage_AllowsEmbeddedImages() {
+    var result = FileAccessInfo.CanAccessServedImage("resource://static/lib/assets/default.ico", MakeUser(), out var status);
+
+    await Assert.That(result).IsTrue();
+    await Assert.That(status).IsEqualTo(200);
+  }
+
+  /// <summary>
+  /// A fallback image can point at another user's file, so the served file must be checked
+  /// even when the requested managed resource was allowed.
+  /// </summary>
+  [Test]
+  public async Task CanAccessServedImage_RejectsAnotherUsersFallbackImage() {
+    var path = AppDataPath(@"multiuser-resources\user\jdoe\icon.png");
+    WriteFile(path);
+
+    var result = FileAccessInfo.CanAccessServedImage(path, MakeUser(username: "bob"), out var status);
+
+    await Assert.That(result).IsFalse();
+    await Assert.That(status).IsEqualTo(403);
+  }
+
+  [Test]
+  public async Task CanAccessServedImage_AllowsOwnImage() {
+    var path = AppDataPath(@"multiuser-resources\user\jdoe\icon.png");
+    WriteFile(path);
+
+    var result = FileAccessInfo.CanAccessServedImage(path, MakeUser(username: "jdoe"), out var status);
+
+    await Assert.That(result).IsTrue();
+    await Assert.That(status).IsEqualTo(200);
+  }
+
+  [Test]
   public async Task CanAccessPath_CanAccessOwnUserResourceFromMultiuserResources() {
     var path = AppDataPath(@"multiuser-resources\user\jdoe\file.rdp");
     var user = MakeUser(username: "jdoe");

@@ -183,6 +183,19 @@ public static class FileAccessInfo {
         return CanAccessPath(path, userInfo, out _);
     }
 
+    /// <summary>
+    /// A version of <see cref="CanAccessPath(string, UserInformation, out int)"/>
+    /// that can also handle paths that start with "resource://".
+    /// Use this check whenever it is possible for a path to be a resource:// path.
+    /// </summary>
+    public static bool CanAccessServedImage(string? servedImagePath, UserInformation userInfo, out int httpStatus) {
+        httpStatus = 200;
+        if (servedImagePath is null || servedImagePath.StartsWith("resource://", StringComparison.OrdinalIgnoreCase)) {
+            return true;
+        }
+        return CanAccessPath(servedImagePath, userInfo, out httpStatus);
+    }
+
     extension(Path) {
         /// <summary>
         /// Determines if the candidate full path is inside the specified root folder.

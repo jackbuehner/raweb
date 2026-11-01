@@ -359,15 +359,34 @@ internal static class AuthenticateEndpoint {
   /// <param name="returnUrl">The absolute URL that the web app should go to after MFA is completed.</param>
   /// <returns></returns>
   private static IResult? TriggerMultiFactorAuthenticationPrompt(HttpContext ctx, ParsedCredentials credentials, string? returnUrl) {
-    // if Duo MFA is enabled, redirect to Duo authorization endpoint
     var duoPolicy = PoliciesManager.GetDuoMfaPolicyForDomain(credentials.Domain, credentials.Username);
+    var loginTcPolicy = PoliciesManager.GetLoginTCMfaPolicyForDomain(credentials.Domain, credentials.Username);
+    if (duoPolicy is null && loginTcPolicy is null) {
+      return null;
+    }
+
+    // The return URL determines where the MFA providers redirect after the user completes MFA.
+    // It must be the same origin as the request to prevent redirecting to a malicious site.
+    // After this check, the return URL is stored in a protected cookie so that it cannot be
+    // modified by the client.
+    if (!SameOriginUrl.IsSameOrigin(ctx.Request, returnUrl)) {
+      return Results.Ok(
+        new AuthResponse {
+          Success = false,
+          Error = "login.server.invalidReturnUrl",
+          Domain = credentials.Domain
+        }
+      );
+    }
+
+    // if Duo MFA is enabled, redirect to Duo authorization endpoint
     if (duoPolicy is not null) {
       try {
         var redirectPath = ctx.Request.PathBase + duoPolicy.RedirectPath; // append the path prefix for RAWeb
         var duoAuth = new DuoAuth(duoPolicy.ClientId, duoPolicy.SecretKey, duoPolicy.Hostname, redirectPath);
         duoAuth.DoHealthCheck();
-        var authorizationRequest = duoAuth.GetRequestAuthorizationEndpoint(credentials.Username, returnUrl ?? "");
-        StartMfaState(ctx, credentials, returnUrl ?? "", authorizationRequest.State);
+        var authorizationRequest = duoAuth.GetRequestAuthorizationEndpoint(credentials.Username, returnUrl);
+        StartMfaState(ctx, credentials, returnUrl, authorizationRequest.State);
         return Results.Ok(
           new AuthResponse {
             Success = true,
@@ -390,14 +409,13 @@ internal static class AuthenticateEndpoint {
     }
 
     // if LoginTC MFA is enabled, redirect to LoginTC authorization endpoint
-    var loginTcPolicy = PoliciesManager.GetLoginTCMfaPolicyForDomain(credentials.Domain, credentials.Username);
     if (loginTcPolicy is not null) {
       try {
         var redirectPath = ctx.Request.PathBase + loginTcPolicy.RedirectPath; // append the path prefix for RAWeb
         var loginTcAuth = new LoginTCAuth(loginTcPolicy.ClientId, loginTcPolicy.SecretKey, loginTcPolicy.Hostname, redirectPath);
         loginTcAuth.DoPing();
-        var authorizationRequest = loginTcAuth.GetRequestAuthorizationEndpoint(credentials.Username, returnUrl ?? "");
-        StartMfaState(ctx, credentials, returnUrl ?? "", authorizationRequest.State);
+        var authorizationRequest = loginTcAuth.GetRequestAuthorizationEndpoint(credentials.Username, returnUrl);
+        StartMfaState(ctx, credentials, returnUrl, authorizationRequest.State);
         return Results.Ok(
           new AuthResponse {
             Success = true,

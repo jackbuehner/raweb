@@ -78,20 +78,124 @@ public class FileAccessInfoTests {
     await Assert.That(status).IsEqualTo(200);
   }
 
+  // Replaces the file's permissions with read access for only the specified SIDs.
+  private static void SetOnlyReadRules(string path, params string[] sids) {
+    var fileSecurity = new FileInfo(path).GetAccessControl();
+    fileSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+    foreach (FileSystemAccessRule rule in fileSecurity.GetAccessRules(true, false, typeof(SecurityIdentifier))) {
+      fileSecurity.RemoveAccessRule(rule);
+    }
+
+    // keep full control for the current user so that the test can delete the file afterward
+    fileSecurity.AddAccessRule(new FileSystemAccessRule(WindowsIdentity.GetCurrent().User!, FileSystemRights.FullControl, AccessControlType.Allow));
+    foreach (var sid in sids) {
+      fileSecurity.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(sid), FileSystemRights.Read, AccessControlType.Allow));
+    }
+    new FileInfo(path).SetAccessControl(fileSecurity);
+  }
+
+  private static void WriteManagedResource(string path, string sddl) {
+    var resource = new Management.ManagedFileResource(path, null, "remoteapplicationname:s:test", null, null, null, null, new RawSecurityDescriptor(sddl));
+    resource.WriteToFile();
+  }
+
   /// <summary>
-  /// For paths where the file's security descriptor is checked, anonymous users
-  /// are always allowed read access. This does not apply to special paths
-  /// such as multiuser-resources and other managed resources.
+  /// For paths where the file's security descriptor is checked (such as the resources folder
+  /// and the inject filestore), anonymous users can only read files that Everyone or Users can read.
   /// </summary>
-  /// <returns></returns>
   [Test]
-  public async Task CanAccessPath_AnonymousUserAllowedForNonSpecialPath() {
-    var path = AppDataPath(@"resources\nonexistent.rdp");
+  [Arguments(@"resources\app.rdp", "S-1-1-0")] // Everyone
+  [Arguments(@"resources\app.rdp", "S-1-5-32-545")] // Users
+  [Arguments(@"inject\filestore\file.js", "S-1-1-0")]
+  [Arguments(@"inject\filestore\file.js", "S-1-5-32-545")]
+  public async Task CanAccessPath_AnonymousUserAllowedWhenEveryoneOrUsersCanRead(string relativePath, string groupSid) {
+    var path = AppDataPath(relativePath);
+    WriteFile(path);
+    SetOnlyReadRules(path, groupSid);
 
     var result = FileAccessInfo.CanAccessPath(path, UserInformation.AnonymousUser, out var status);
 
     await Assert.That(result).IsTrue();
     await Assert.That(status).IsEqualTo(200);
+  }
+
+  [Test]
+  [Arguments(@"resources\app.rdp", "S-1-5-21-1000")] // a specific user
+  [Arguments(@"resources\app.rdp", "S-1-5-11")] // Authenticated Users
+  [Arguments(@"inject\filestore\file.js", "S-1-5-21-1000")]
+  [Arguments(@"inject\filestore\file.js", "S-1-5-11")]
+  public async Task CanAccessPath_AnonymousUserNotAllowedWhenOnlyOthersCanRead(string relativePath, string sid) {
+    var path = AppDataPath(relativePath);
+    WriteFile(path);
+    SetOnlyReadRules(path, sid);
+
+    var result = FileAccessInfo.CanAccessPath(path, UserInformation.AnonymousUser, out var status);
+
+    await Assert.That(result).IsFalse();
+    await Assert.That(status).IsEqualTo(403);
+  }
+
+  [Test]
+  public async Task CanAccessPath_AnonymousUserGets404ForMissingNonSpecialPath() {
+    var path = AppDataPath(@"resources\nonexistent.rdp");
+
+    var result = FileAccessInfo.CanAccessPath(path, UserInformation.AnonymousUser, out var status);
+
+    await Assert.That(result).IsFalse();
+    await Assert.That(status).IsEqualTo(404);
+  }
+
+  [Test]
+  [Arguments(@"multiuser-resources\user\anonymous\app.rdp")]
+  [Arguments(@"multiuser-resources\group\Everyone\app.rdp")]
+  [Arguments(@"multiuser-resources\group\Users\app.rdp")]
+  [Arguments(@"multiuser-resources\group\S-1-1-0\app.rdp")]
+  [Arguments(@"multiuser-resources\group\S-1-5-32-545\app.rdp")]
+  public async Task CanAccessPath_AnonymousUserAllowedForOwnMultiuserFolders(string relativePath) {
+    var path = AppDataPath(relativePath);
+    WriteFile(path);
+
+    var result = FileAccessInfo.CanAccessPath(path, UserInformation.AnonymousUser, out var status);
+
+    await Assert.That(result).IsTrue();
+    await Assert.That(status).IsEqualTo(200);
+  }
+
+  [Test]
+  [Arguments(@"multiuser-resources\group\Authenticated Users\app.rdp")]
+  [Arguments(@"multiuser-resources\group\S-1-5-11\app.rdp")]
+  public async Task CanAccessPath_AnonymousUserNotAllowedForAuthenticatedUsersMultiuserFolder(string relativePath) {
+    var path = AppDataPath(relativePath);
+    WriteFile(path);
+
+    var result = FileAccessInfo.CanAccessPath(path, UserInformation.AnonymousUser, out var status);
+
+    await Assert.That(result).IsFalse();
+    await Assert.That(status).IsEqualTo(403);
+  }
+
+  [Test]
+  [Arguments("S-1-1-0")] // Everyone
+  [Arguments("S-1-5-32-545")] // Users
+  public async Task CanAccessPath_AnonymousUserAllowedForManagedResourceGrantedToEveryoneOrUsers(string groupSid) {
+    var path = AppDataPath(@"managed-resources\test.resource");
+    WriteManagedResource(path, $"O:BAG:BAD:(A;;FA;;;{groupSid})");
+
+    var result = FileAccessInfo.CanAccessPath(path, UserInformation.AnonymousUser, out var status);
+
+    await Assert.That(result).IsTrue();
+    await Assert.That(status).IsEqualTo(200);
+  }
+
+  [Test]
+  public async Task CanAccessPath_AnonymousUserNotAllowedForManagedResourceGrantedToAuthenticatedUsers() {
+    var path = AppDataPath(@"managed-resources\test.resource");
+    WriteManagedResource(path, "O:BAG:BAD:(A;;FA;;;S-1-5-11)");
+
+    var result = FileAccessInfo.CanAccessPath(path, UserInformation.AnonymousUser, out var status);
+
+    await Assert.That(result).IsFalse();
+    await Assert.That(status).IsEqualTo(403);
   }
 
   [Test]

@@ -208,8 +208,14 @@ public class UserInformation {
 
   /// <summary>
   /// A predefined UserInformation object representing an anonymous user.
+  /// <br /><br />
+  /// The anonymous user is a member of Everyone and Users so that it can access anything that is
+  /// available to all users. It is not a member of Authenticated Users because it never signs in.
   /// </summary>
-  public static readonly UserInformation AnonymousUser = new("S-1-4-447-1", "anonymous", "RAWEB", "Anonymous User", IncludedSpecialIdentityGroups);
+  public static readonly UserInformation AnonymousUser = new("S-1-4-447-1", "anonymous", "RAWEB", "Anonymous User", [
+    new GroupInformation("Everyone", "S-1-1-0"),
+    new GroupInformation("Users", "S-1-5-32-545"),
+  ]);
 
   public override string ToString() {
     var str = new StringBuilder();

@@ -150,11 +150,6 @@ public static class FileAccessInfo {
 
         // check the security descriptor for the path
         if (method == "secdesc") {
-            // if the current user is anonymous, allow access
-            if (userInfo.Sid == "S-1-4-447-1") {
-                return true;
-            }
-
             try {
                 var access = GetAccessInfo(path, userInfo);
 

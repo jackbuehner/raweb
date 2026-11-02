@@ -41,13 +41,9 @@ public class RegistryReader {
                 return false;
             }
 
-            // if the current user is anonymous, allow access
-            if (userInfo.IsAnonymousUser) {
-                return true;
-            }
-
-            // if the current user is not a member of the Remote Desktop Users group or the Administrators, deny access
-            if (!userInfo.IsRemoteDesktopUser && !userInfo.IsLocalAdministrator) {
+            // require non-anonymous users to be members of the Remote Desktop Users group or the Administrators group
+            var canAccessRemoteDesktop = userInfo.IsRemoteDesktopUser || userInfo.IsLocalAdministrator;
+            if (!userInfo.IsAnonymousUser && !canAccessRemoteDesktop) {
                 httpStatus = 403;
                 return false;
             }

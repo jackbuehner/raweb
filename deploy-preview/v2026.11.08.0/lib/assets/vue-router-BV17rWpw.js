@@ -1,0 +1,1 @@
+export{ft as RouterLink}from"./shared-C1Hpaa07.js";

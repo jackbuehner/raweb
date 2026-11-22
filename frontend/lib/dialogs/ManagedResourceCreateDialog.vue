@@ -327,6 +327,10 @@
           });
         }
 
+        if (res.status === 409) {
+          throw new Error(t('registryApps.manager.create.409'));
+        }
+
         if (!res.ok) {
           const errorJson = await res.json().catch((e) => '(no json body)');
           if (
@@ -362,11 +366,6 @@
       })
       .catch((err) => {
         if (err instanceof Error) {
-          if (err.message.includes('409 Conflict')) {
-            saveError.value = new Error(t('registryApps.manager.create.409'));
-            return;
-          }
-
           saveError.value = err;
         } else {
           saveError.value = new Error('An unknown error occurred while saving.');

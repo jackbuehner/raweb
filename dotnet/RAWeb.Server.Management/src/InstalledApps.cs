@@ -73,6 +73,13 @@ public class InstalledApp(string path, string displayName, string displayFolder,
     // read shortcut target, arguments and icon
     var lnk = Shortcut.ReadFromFile(shortcutFilePath);
     var targetPath = lnk.LinkInfo?.LocalBasePathUnicode ?? lnk.LinkInfo?.LocalBasePath;
+    if (string.IsNullOrWhiteSpace(targetPath) || string.IsNullOrEmpty(System.IO.Path.GetFileName(targetPath))) {
+      // some shortcuts store the drive root in LinkInfo and the real path in the target ID list
+      var idListPath = lnk.LinkTargetIDList?.Path;
+      if (!string.IsNullOrWhiteSpace(idListPath)) {
+        targetPath = idListPath;
+      }
+    }
     var targetArguments = lnk.StringData?.CommandLineArguments;
     var rawIconPath = lnk.StringData?.IconLocation;
     var iconIndex = lnk.IconIndex;

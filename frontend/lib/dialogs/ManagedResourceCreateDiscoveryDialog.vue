@@ -144,6 +144,25 @@
     (e: 'onClose'): void;
   }>();
 
+  /**
+   * Holds the nested dialog open until the consumer has finished refreshing,
+   * then closes the nested dialog and this one together.
+   */
+  function handleInnerAfterSave(innerEvent: PreventableEvent<{ next: () => void }>, close: () => void) {
+    innerEvent.preventDefault();
+
+    const next = () => {
+      innerEvent.detail.next();
+      close();
+    };
+
+    const event = new PreventableEvent({ next });
+    emit('afterSave', event);
+    if (!event.defaultPrevented) {
+      next();
+    }
+  }
+
   const createDialog = useTemplateRef<InstanceType<typeof ManagedResourceCreateDialog> | null>('createDialog');
 
   const createDialog_registryKey = ref<string>();
@@ -221,19 +240,7 @@
           </Button>
           <BulkImportDialog
             #default="{ open: openCreationDialog, handleFileInput }"
-            @after-save="
-              () => {
-                const next = () => {
-                  close();
-                };
-
-                const event = new PreventableEvent({ next });
-                emit('afterSave', event);
-                if (!event.defaultPrevented) {
-                  next();
-                }
-              }
-            "
+            @after-save="(innerEvent) => handleInnerAfterSave(innerEvent, close)"
           >
             <Button
               @click="
@@ -299,19 +306,7 @@
         }"
         :is-remote-app="true"
         :is-managed-file-resource="false"
-        @after-save="
-          () => {
-            const next = () => {
-              close();
-            };
-
-            const event = new PreventableEvent({ next });
-            emit('afterSave', event);
-            if (!event.defaultPrevented) {
-              next();
-            }
-          }
-        "
+        @after-save="(innerEvent) => handleInnerAfterSave(innerEvent, close)"
       />
     </template>
 

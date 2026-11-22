@@ -154,6 +154,7 @@
     { immediate: true }
   );
   function clearDialogData() {
+    saving.value = false;
     formData.value = null;
     saveError.value = null;
     openDate.value = null;
@@ -354,8 +355,6 @@
           clearDialogData();
 
           close();
-
-          saving.value = false;
         };
 
         const event = new PreventableEvent({ next, revertToInitialData, fadeOutDialogContent });
@@ -371,8 +370,6 @@
           saveError.value = new Error('An unknown error occurred while saving.');
         }
         console.error(err);
-      })
-      .finally(() => {
         saving.value = false;
       });
   }
